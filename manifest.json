@@ -1,0 +1,19 @@
+{
+  "name": "30-Day Diet Tracker",
+  "short_name": "Diet Tracker",
+  "description": "Apna daily diet plan track karein — 30 din ka cycle, editable meals, aur cloud sync ke saath.",
+  "start_url": "./index.html",
+  "id": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#FAF6EC",
+  "theme_color": "#1F6F5C",
+  "orientation": "portrait",
+  "lang": "hi",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

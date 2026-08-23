@@ -1,0 +1,856 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#1F6F5C">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%8D%B1%3C/text%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="manifest" href="manifest.json">
+<title>30-Day Diet Tracker</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@500;700;800&family=Hind:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#FAF6EC;
+  --card:#FFFFFF;
+  --ink:#2B2118;
+  --muted:#8A7A66;
+  --line:#EDE3D0;
+  --primary:#1F6F5C;
+  --primary-dark:#154C3F;
+  --accent:#E2A63B;
+  --done-bg:#EAF6EF;
+  --done-line:#BFE4CD;
+  --pending-accent:#D97706;
+  --shadow:0 2px 10px rgba(43,33,24,.06);
+}
+[data-theme="dark"]{
+  --bg:#161310;
+  --card:#211C17;
+  --ink:#F3ECE1;
+  --muted:#A79A87;
+  --line:#332C24;
+  --primary:#3FA98A;
+  --primary-dark:#59CBA9;
+  --accent:#E8B85B;
+  --done-bg:#16241D;
+  --done-line:#2C4A3B;
+  --shadow:0 2px 10px rgba(0,0,0,.35);
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:'Hind',"Noto Sans Devanagari",sans-serif;color:var(--ink);-webkit-tap-highlight-color:transparent;transition:background .2s,color .2s}
+.h-title,.day-title,.stat b{font-family:'Baloo 2','Hind',sans-serif}
+
+/* ---------- header (kept as compact as possible on mobile) ---------- */
+header{background:linear-gradient(135deg,var(--primary-dark),var(--primary));color:#fff;padding:7px 0 8px;position:fixed;top:0;left:0;right:0;width:100%;z-index:30;box-shadow:0 4px 14px rgba(0,0,0,.12)}
+.wrap{max-width:900px;margin:auto;padding:0 14px}
+.header-top{display:flex;align-items:center;gap:6px}
+.brand-emoji{font-size:18px;flex:0 0 auto;line-height:1}
+.h-title{flex:1;min-width:0;font-family:'Baloo 2','Hind',sans-serif;font-weight:800;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.theme-toggle{flex:0 0 auto;width:28px;height:28px;padding:0;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px}
+.header-search{margin-top:6px}
+#search{width:100%;border:1px solid rgba(255,255,255,.4);background:rgba(255,255,255,.15);color:#fff;border-radius:9px;padding:7px 11px;font-size:12.5px}
+#search::placeholder{color:rgba(255,255,255,.75)}
+
+main{padding-bottom:60px}
+
+/* ---------- quick bar (part of the fixed header) ---------- */
+.quick-bar{display:flex;gap:6px;align-items:center;margin-top:6px}
+.quick-bar .view-toggle{margin-top:0;background:rgba(255,255,255,.15);box-shadow:none;flex:1;min-width:0}
+.quick-bar .vt-btn{color:rgba(255,255,255,.85);font-size:10.5px;padding:6px 5px;white-space:nowrap}
+.quick-bar .vt-btn.active{background:#fff;color:var(--primary-dark)}
+.month-quick{border:1px solid rgba(255,255,255,.35);background:rgba(255,255,255,.15);color:#fff;border-radius:8px;padding:6px 5px;font-weight:600;font-size:11px;flex:0 0 auto}
+.month-quick option{color:#111}
+.quick-progress{flex:0 0 auto;background:rgba(255,255,255,.18);color:#fff;font-weight:700;font-size:11px;padding:6px 8px;border-radius:8px;white-space:nowrap}
+
+.view-toggle{display:flex;gap:6px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:4px;margin-top:14px;box-shadow:var(--shadow)}
+.vt-btn{flex:1;border:0;border-radius:9px;padding:9px 8px;background:transparent;color:var(--muted);font-weight:600;font-size:12.5px;cursor:pointer}
+.vt-btn.active{background:var(--primary);color:#fff}
+
+@media(max-width:380px){
+  .h-title{font-size:12.5px}
+  .quick-bar .vt-btn{font-size:9.5px;padding:5px 4px}
+  .month-quick,.quick-progress{font-size:10px;padding:5px 4px}
+}
+
+/* ---------- prep banner ---------- */
+.prep-banner{background:linear-gradient(135deg,var(--accent),#EFC474);color:#3A2A0A;border-radius:14px;padding:10px 14px;margin-top:12px;font-size:13px;line-height:1.5;box-shadow:var(--shadow)}
+.prep-banner b{display:block;font-size:12px;margin-bottom:2px}
+
+/* ---------- heatmap ---------- */
+.heatmap-wrap{margin:14px 0}
+.heatmap-title{font-size:12.5px;color:var(--muted);font-weight:600;margin-bottom:6px}
+.heatmap{display:grid;grid-template-columns:repeat(auto-fill,minmax(24px,1fr));gap:4px}
+.heat-cell{aspect-ratio:1;border:0;border-radius:6px;font-size:10.5px;font-weight:700;cursor:pointer;color:var(--muted);background:var(--line)}
+.heat-cell.h0{background:var(--line);color:var(--muted)}
+.heat-cell.h1{background:#F3D9A0;color:#5A4110}
+.heat-cell.h2{background:var(--accent);color:#3A2A0A}
+.heat-cell.h3{background:var(--primary);color:#fff}
+.heat-cell.today-cell{outline:2px solid var(--pending-accent);outline-offset:1px}
+
+/* ---------- mark-all ---------- */
+.mark-all-btn{flex:0 0 auto;border:0;background:var(--line);color:var(--primary-dark);border-radius:7px;width:26px;height:26px;font-size:12px;cursor:pointer}
+.day-card.done .mark-all-btn{background:var(--done-line)}
+
+/* ---------- stats ---------- */
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:7px 5px;text-align:center;box-shadow:var(--shadow)}
+.stat span{font-size:9.5px;color:var(--muted);display:block}
+.stat b{display:block;font-size:15px;margin-top:1px;color:var(--primary-dark)}
+.stat.streak b{color:var(--pending-accent)}
+
+/* ---------- controls ---------- */
+.controls{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;box-shadow:var(--shadow);margin-bottom:12px}
+.controls-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;align-items:stretch}
+.controls-row + .controls-row{margin-top:6px}
+.controls-row select,.controls-row button{width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis}
+input,select,button{font:inherit}
+input[type=search],select{border:1px solid var(--line);border-radius:9px;padding:8px 9px;background:#fff;color:var(--ink)}
+.controls select{padding:8px 2px;font-size:11px;text-align:center;text-align-last:center}
+.controls button{border:0;border-radius:9px;padding:7px 3px;cursor:pointer;background:var(--primary);color:#fff;font-weight:600;font-size:10.5px;white-space:normal;text-align:center;line-height:1.2}
+button{border:0;border-radius:9px;padding:8px 11px;cursor:pointer;background:var(--primary);color:#fff;font-weight:600;font-size:12px;white-space:nowrap}
+button.secondary{background:#F1EADA;color:var(--primary-dark)}
+button:active{transform:scale(.97)}
+
+/* ---------- months ---------- */
+.month-bar{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.month-bar strong{font-size:13px;white-space:nowrap;color:var(--primary-dark)}
+.months{display:flex;gap:6px;overflow-x:auto;padding:4px 2px;scroll-snap-type:x proximity}
+.months::-webkit-scrollbar{height:4px}
+.month{flex:0 0 auto;padding:8px 13px;border-radius:20px;background:var(--card);border:1px solid var(--line);cursor:pointer;font-size:13px;font-weight:600;color:var(--muted);scroll-snap-align:start}
+.month.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+
+.legend{font-size:12px;color:var(--muted);padding:0 2px 12px;line-height:1.5}
+
+/* ---------- day cards ---------- */
+.day-list{display:flex;flex-direction:column;gap:7px}
+.day-card{background:var(--card);border:1px solid var(--line);border-radius:13px;box-shadow:var(--shadow);overflow:hidden;transition:background .2s}
+.day-card.done{background:var(--done-bg);border-color:var(--done-line)}
+.day-head{width:100%;display:flex;align-items:center;gap:8px;padding:9px 11px;background:transparent;border:0;cursor:pointer;text-align:left;color:var(--ink)}
+.day-badge{flex:0 0 auto;width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:var(--primary-dark);background:conic-gradient(var(--accent) calc(var(--pct)*1%),var(--line) 0);position:relative}
+.day-badge::after{content:"";position:absolute;inset:3px;border-radius:50%;background:var(--card)}
+.day-card.done .day-badge::after{background:var(--done-bg)}
+.day-badge span{position:relative;z-index:1}
+.day-title{flex:1;font-weight:700;font-size:13.5px}
+.wd-badge{display:inline-block;font-size:9.5px;font-weight:700;color:var(--primary-dark);background:var(--done-bg);border:1px solid var(--done-line);border-radius:6px;padding:1px 5px;margin-left:3px;vertical-align:middle}
+.day-title small{display:block;font-weight:500;font-size:10.5px;color:var(--muted);font-family:'Hind',sans-serif}
+.chev{flex:0 0 auto;transition:transform .2s;color:var(--muted);font-size:13px}
+.day-card.open .chev{transform:rotate(180deg)}
+
+.day-body{max-height:0;overflow:hidden;transition:max-height .25s ease}
+.day-card.open .day-body{max-height:600px}
+.meal-row{display:flex;align-items:flex-start;gap:8px;padding:7px 11px;border-top:1px solid var(--line)}
+.meal-row input{width:18px;height:18px;flex:0 0 auto;margin-top:1px;accent-color:var(--primary);cursor:pointer}
+.meal-icon{font-size:14px;flex:0 0 auto}
+.meal-text{font-size:12.5px;line-height:1.4}
+.meal-text small{display:block;color:var(--muted);font-size:10px;margin-top:1px}
+.meal-row.checked .meal-text{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--done-line)}
+
+.empty{padding:40px 16px;text-align:center;color:var(--muted);background:var(--card);border-radius:16px;border:1px solid var(--line)}
+
+/* ---------- table view (editable meal table) ---------- */
+.table-toolbar{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px;font-size:12px;color:var(--muted)}
+.table-toolbar button{font-size:11px;padding:6px 9px;flex:0 0 auto}
+.table-scroll{overflow-x:auto;border-radius:13px;box-shadow:var(--shadow);border:1px solid var(--line);margin-bottom:16px;-webkit-overflow-scrolling:touch}
+#mealTable{width:100%;border-collapse:collapse;background:var(--card);font-size:12.5px;min-width:520px}
+#mealTable thead tr{background:var(--primary);color:#fff}
+#mealTable th{padding:9px 8px;text-align:left;font-weight:700;font-size:11.5px;white-space:nowrap}
+#mealTable td{padding:6px 8px;border-top:1px solid var(--line);vertical-align:middle}
+#mealTable tr.row-done{background:var(--done-bg)}
+#mealTable .td-day{white-space:nowrap;font-weight:700;color:var(--primary-dark)}
+#mealTable .td-day small{display:block;font-weight:500;color:var(--muted);font-size:10px}
+#mealTable .td-meal{white-space:nowrap;color:var(--muted);font-size:11.5px}
+#mealTable .meal-edit{width:100%;min-width:170px;border:1px solid var(--line);border-radius:7px;padding:6px 8px;background:var(--bg);color:var(--ink);font-size:12px}
+#mealTable .meal-edit:focus{outline:2px solid var(--primary);border-color:var(--primary)}
+#mealTable .td-done{text-align:center}
+#mealTable .td-done input{width:19px;height:19px;accent-color:var(--primary);cursor:pointer}
+.edit-meal-btn{border:0;background:transparent;color:var(--muted);font-size:11.5px;cursor:pointer;padding:2px 4px;flex:0 0 auto}
+
+/* ---------- sync modal ---------- */
+.sync-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;display:flex;align-items:center;justify-content:center;padding:16px}
+.sync-modal{background:var(--card);color:var(--ink);border-radius:16px;padding:18px;max-width:360px;width:100%;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+.sync-modal h3{margin:0 0 8px;font-size:15px;font-family:'Baloo 2','Hind',sans-serif;color:var(--primary-dark)}
+.sync-modal p{font-size:12.5px;color:var(--muted);line-height:1.5;margin:0 0 10px}
+.sync-modal input{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:13px;background:var(--bg);color:var(--ink);margin-bottom:10px}
+.sync-modal .row{display:flex;gap:8px}
+.sync-modal .row button{flex:1}
+.sync-status{font-size:11px;margin-top:8px;padding:6px 8px;border-radius:7px;background:var(--done-bg);color:var(--primary-dark)}
+.sync-status.off{background:var(--line);color:var(--muted)}
+.day-card,#dayList{scroll-margin-top:145px}
+.hidden{display:none}
+
+.day-card.today{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset,var(--shadow)}
+.day-card.today .day-title small::after{content:" • आज";color:var(--pending-accent);font-weight:700}
+
+.meal-row.m0{border-left:4px solid var(--accent)}
+.meal-row.m1{border-left:4px solid var(--primary)}
+.meal-row.m2{border-left:4px solid #6B8FE8}
+
+.theme-toggle{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.35)}
+
+@media(min-width:640px){
+  .day-list{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .stats{grid-template-columns:repeat(6,1fr)}
+}
+@media print{
+  header{position:static;box-shadow:none}
+  body{padding-top:0!important}
+  .controls,.month-bar,.legend,.quick-bar,.header-search{display:none}
+  .day-body{max-height:none!important}
+  .day-list{display:block}
+  .day-card{break-inside:avoid;margin-bottom:8px}
+}
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap header-top">
+    <span class="brand-emoji">🍱</span>
+    <span class="h-title">30-Day Diet Tracker</span>
+    <button class="theme-toggle" onclick="window.print()" title="Print">🖨️</button>
+    <button class="theme-toggle" onclick="shareProgress()" title="Share">📤</button>
+    <button class="theme-toggle" id="syncBtn" onclick="openSyncSettings()" title="Cloud Sync">☁️</button>
+    <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()">🌙</button>
+  </div>
+  <div class="wrap header-search">
+    <input id="search" type="search" placeholder="🔎 सब्जी / दाल / नाश्ता / दिन खोजें...">
+  </div>
+  <div class="quick-bar wrap">
+    <div class="view-toggle" id="viewToggle">
+      <button type="button" class="vt-btn active" data-mode="today" onclick="setViewMode('today')">🎯 आज</button>
+      <button type="button" class="vt-btn" data-mode="all" onclick="setViewMode('all')">📅 पूरा महीना</button>
+      <button type="button" class="vt-btn" data-mode="table" onclick="setViewMode('table')">📋 सारणी</button>
+    </div>
+    <select id="monthQuick" class="month-quick"></select>
+    <span class="quick-progress" id="quickProgress">0%</span>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="prepBanner"></div>
+
+  <section class="stats">
+    <div class="stat"><span>कुल दिन</span><b id="totalDays">30</b></div>
+    <div class="stat"><span>कुल Meals</span><b id="totalMeals">90</b></div>
+    <div class="stat"><span>Done</span><b id="completed">0</b></div>
+    <div class="stat"><span>Pending</span><b id="pending">90</b></div>
+    <div class="stat"><span>Progress</span><b id="progress">0%</b></div>
+    <div class="stat streak"><span>🔥 Streak</span><b id="streak">0</b></div>
+  </section>
+
+  <section class="controls">
+    <div class="controls-row">
+      <select id="statusFilter">
+        <option value="all">सभी Meals</option>
+        <option value="pending">केवल Pending</option>
+        <option value="done">केवल Completed</option>
+      </select>
+      <select id="dayFilter"><option value="all">सभी दिन</option></select>
+      <button onclick="clearAll()">Reset महीना</button>
+    </div>
+    <div class="controls-row">
+      <button class="secondary" id="toggleAllBtn" onclick="toggleAll()">सभी बंद करें</button>
+      <button class="secondary" onclick="undoLast()">↩️ Undo</button>
+      <button class="secondary" onclick="toggleGrocery()">🛒 दोहराई गई चीज़ें</button>
+    </div>
+  </section>
+
+  <section class="month-bar">
+    <strong>📅 <span id="selectedMonth">Sep</span></strong>
+    <div class="months" id="months"></div>
+  </section>
+  <div class="legend">💡 डिफ़ॉल्ट में आज, कल और परसों के meals दिखते हैं — "पूरा महीना" दबाकर बाकी दिन भी देखें। Card पर टैप कर के खोलें/बंद करें, meal पूरा होने पर checkbox tick करें।</div>
+
+  <div id="groceryPanel" class="hidden" style="background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin-bottom:12px;font-size:13px;line-height:1.6;box-shadow:var(--shadow)"></div>
+
+  <section class="heatmap-wrap">
+    <div class="heatmap-title">📊 इस महीने का overview (टैप कर के उस दिन पर जाएं)</div>
+    <div class="heatmap" id="heatmap"></div>
+  </section>
+
+  <div class="day-list" id="dayList"></div>
+
+  <section id="tableView" class="hidden">
+    <div class="table-toolbar">
+      <span>📋 <b id="tableMonthLabel"></b> — सभी meals, edit करने के लिए text पर टैप करें</span>
+      <button type="button" class="secondary" onclick="resetCustomMealsForMonth()">🔄 Naam Reset</button>
+    </div>
+    <div class="table-scroll">
+      <table id="mealTable">
+        <thead>
+          <tr><th>दिन</th><th>Meal</th><th>Text (edit करें)</th><th>Done</th></tr>
+        </thead>
+        <tbody id="mealTableBody"></tbody>
+      </table>
+    </div>
+  </section>
+</main>
+
+<!-- Firebase (cloud sync) — config values are in firebase-config.js -->
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
+<script src="firebase-config.js"></script>
+
+<script>
+const months=["Sep","Oct","Nov","Dec","Jan","Feb","Mar","Apr","May","Jun","Jul","Aug"];
+// storage keys stay tied to the index above (unchanged, so old tracked data keeps working);
+// display order below is purely for the month chips, shown Jan -> Dec.
+const displayOrder=[4,5,6,7,8,9,10,11,0,1,2,3];
+const mealMeta=[
+  {icon:"🌅",label:"सुबह का नाश्ता"},
+  {icon:"☀️",label:"दोपहर का भोजन"},
+  {icon:"🌙",label:"शाम का भोजन"}
+];
+const meals=[
+["आलू पराठा + दही","मिक्स वेज सब्जी + रोटी","वाल की सब्जी + रोटी"],
+["मेथी थेपला + दही","चना दाल + सलाद + रोटी","लौकी मुठिया + छाछ"],
+["पोहा + मूंगफली","ग्वार फली / वाल / फलीदार सब्जी + बाजरा रोटला","मूंग खिचड़ी + कढ़ी"],
+["रवा उपमा + दही","सहजन-आलू / वाल पापड़ी सब्जी + रोटी","कद्दू की सब्जी / लाल कोला + रोटी"],
+["स्प्राउट्स + दही","स्प्राउट्स सलाद / सब्जी + रोटी","तुरई की सब्जी / गिल्की + रोटी"],
+["अपम + चटनी","शिमला मिर्च / भरवा मिर्च + रोटी","तुअर दाल + रोटी + सलाद"],
+["वेज पराठा + दही","काला चना + सलाद + रोटी","कढ़ी + जाड़ी रोटी"],
+["मूंग चिल्ला + दही","पत्तागोभी / फूलगोभी + रोटी","मसाला चावल + रायता"],
+["आलू-प्याज पोहा","सफेद मटर की सब्जी / कल्थी + रोटी","साबुत उड़द + सलाद"],
+["बेसन चिल्ला + दही","पालक / हरा प्याज + रोटी","चवली (लोबिया) + रोटी"],
+["मूंग दाल डोसा + चटनी","गार्लिक-गाजर / मौसमी जड़ वाली सब्जी + रोटी","कढ़ी + बाटी + सलाद"],
+["सूजी का वेज चीला","परवल / टिंडोरी + रोटी","मूंग दाल + रोटी"],
+["इडली + सांभर","छोले + रोटी + सलाद","ककड़ी की सब्जी / खीरा रायता + रोटी"],
+["पास्ता / वेज सैंडविच","अरबी / मूली की सब्जी + रोटी","दलिया खिचड़ी + छाछ"],
+["अपम + चटनी","प्याज की सब्जी + बाजरा रोटला","मूंग दाल तड़का + रोटी"],
+["स्प्राउट्स + दही","स्प्राउट्स सलाद / सब्जी + रोटी","पुलाव + रायता"],
+["वेज पोहा + दही","हरी मटर / स्वीट कॉर्न सब्जी + रोटी","मसूर दाल + मटकी + रोटी"],
+["साबुदाना + दही","आलू-मेथी / कोई भी भाजी + रोटी","पानीपूरी / हल्का नाश्ता"],
+["ब्रेड पोहा / उपमा","करेला / कंटोला / कोई भी कड़वी सब्जी + रोटी","चौलाई की सब्जी / हरी भाजी + रोटी"],
+["खमन + छाछ","सूखी मेथी दाना की सब्जी + रोटी","मूंग खिचड़ी + कढ़ी"],
+["मूंग चिल्ला + दही","कच्ची हल्दी / बेसन सब्जी + रोटी","दाल-बाटी + सलाद"],
+["भुट्टा चाट / कॉर्न चाट","परवल की सब्जी + रोटी","बेसन गट्टे की सब्जी + रोटी"],
+["मेथी थेपला + दही","सेव टमाटर + बाजरा रोटला","टिंडा / टिंडोरी + रोटी"],
+["रवा उपमा + दही","बैंगन की सूखी सब्जी / भर्ता + रोटी","उड़द दाल + रोटी + सलाद"],
+["अपम + चटनी","फूलगोभी / पत्तागोभी + रोटी","लौकी-चना दाल + रोटी"],
+["स्प्राउट्स + दही","स्प्राउट्स सलाद / सब्जी + रोटी","मसाला चावल + रायता"],
+["इडली + सांभर","शिमला मिर्च / हरी मिर्च फ्राई + रोटी","कढ़ी + जाड़ी रोटी"],
+["मूंग दाल ढोकला","राजमा + रोटी + सलाद","तुअर दाल + सलाद"],
+["उत्तपम + सांभर","पत्तागोभी / ब्रोकोली + रोटी","दलिया खिचड़ी + छाछ"],
+["भिंडी मसाला + रोटी","भिंडी मसाला / मौसमी हरी सब्जी + रोटी","साबुत मूंग + रोटी"]
+];
+
+// Hinglish (roman) -> Devanagari keyword map, so typing "dal" finds दाल items etc.
+const translit=[
+ {rom:["aloo","alu"],dev:"आलू"},{rom:["paratha","parantha"],dev:"पराठा"},{rom:["dahi","curd"],dev:"दही"},
+ {rom:["mix"],dev:"मिक्स"},{rom:["veg"],dev:"वेज"},{rom:["sabzi","sabji"],dev:"सब्जी"},{rom:["roti"],dev:"रोटी"},
+ {rom:["val","waal"],dev:"वाल"},{rom:["methi"],dev:"मेथी"},{rom:["thepla"],dev:"थेपला"},{rom:["chana","channa"],dev:"चना"},
+ {rom:["dal","daal"],dev:"दाल"},{rom:["salad"],dev:"सलाद"},{rom:["lauki","ghiya"],dev:"लौकी"},{rom:["muthiya"],dev:"मुठिया"},
+ {rom:["chaas","chhaach","chach"],dev:"छाछ"},{rom:["poha"],dev:"पोहा"},{rom:["moongfali","mungfali","peanut"],dev:"मूंगफली"},
+ {rom:["gwar"],dev:"ग्वार"},{rom:["phali"],dev:"फली"},{rom:["bajra"],dev:"बाजरा"},{rom:["rotla"],dev:"रोटला"},
+ {rom:["moong","mung"],dev:"मूंग"},{rom:["khichdi","khichadi"],dev:"खिचड़ी"},{rom:["kadhi","kadi"],dev:"कढ़ी"},
+ {rom:["rava","sooji","suji"],dev:"रवा"},{rom:["upma"],dev:"उपमा"},{rom:["sahjan","drumstick"],dev:"सहजन"},
+ {rom:["papdi"],dev:"पापड़ी"},{rom:["kaddu","pumpkin"],dev:"कद्दू"},{rom:["sprouts"],dev:"स्प्राउट्स"},
+ {rom:["turai"],dev:"तुरई"},{rom:["gilki"],dev:"गिल्की"},{rom:["appam"],dev:"अपम"},{rom:["chutney"],dev:"चटनी"},
+ {rom:["shimla mirch","capsicum"],dev:"शिमला मिर्च"},{rom:["mirch","chilli"],dev:"मिर्च"},{rom:["tuar","toor"],dev:"तुअर"},
+ {rom:["kala chana"],dev:"काला चना"},{rom:["chilla","cheela"],dev:"चिल्ला"},{rom:["pattagobhi","cabbage"],dev:"पत्तागोभी"},
+ {rom:["phoolgobhi","gobhi","cauliflower"],dev:"फूलगोभी"},{rom:["masala"],dev:"मसाला"},{rom:["chawal","rice"],dev:"चावल"},
+ {rom:["raita"],dev:"रायता"},{rom:["matar","peas"],dev:"मटर"},{rom:["kulthi"],dev:"कल्थी"},{rom:["urad"],dev:"उड़द"},
+ {rom:["besan"],dev:"बेसन"},{rom:["palak","spinach"],dev:"पालक"},{rom:["pyaz","onion"],dev:"प्याज"},
+ {rom:["chawli","lobia"],dev:"चवली"},{rom:["dosa"],dev:"डोसा"},{rom:["garlic","lahsun"],dev:"गार्लिक"},
+ {rom:["gajar","carrot"],dev:"गाजर"},{rom:["baati","bati"],dev:"बाटी"},{rom:["parwal","parval"],dev:"परवल"},
+ {rom:["tindori"],dev:"टिंडोरी"},{rom:["idli"],dev:"इडली"},{rom:["sambhar","sambar"],dev:"सांभर"},
+ {rom:["chole","chhole"],dev:"छोले"},{rom:["kakdi","cucumber"],dev:"ककड़ी"},{rom:["kheera"],dev:"खीरा"},
+ {rom:["pasta"],dev:"पास्ता"},{rom:["sandwich"],dev:"सैंडविच"},{rom:["arbi"],dev:"अरबी"},{rom:["mooli","radish"],dev:"मूली"},
+ {rom:["daliya","oats"],dev:"दलिया"},{rom:["sabudana"],dev:"साबुदाना"},{rom:["bhaji"],dev:"भाजी"},{rom:["nashta","snacks"],dev:"नाश्ता"},
+ {rom:["bread"],dev:"ब्रेड"},{rom:["karela","bittergourd"],dev:"करेला"},{rom:["kantola"],dev:"कंटोला"},
+ {rom:["chaulai"],dev:"चौलाई"},{rom:["khaman"],dev:"खमन"},{rom:["haldi","turmeric"],dev:"हल्दी"},{rom:["gatte"],dev:"गट्टे"},
+ {rom:["bhutta","corn"],dev:"भुट्टा"},{rom:["chaat"],dev:"चाट"},{rom:["tamatar","tomato"],dev:"टमाटर"},{rom:["tinda"],dev:"टिंडा"},
+ {rom:["baingan","brinjal","eggplant"],dev:"बैंगन"},{rom:["bharta"],dev:"भर्ता"},{rom:["rajma"],dev:"राजमा"},
+ {rom:["broccoli"],dev:"ब्रोकोली"},{rom:["bhindi","okra"],dev:"भिंडी"},{rom:["pulao"],dev:"पुलाव"},{rom:["masoor"],dev:"मसूर"},
+ {rom:["matki"],dev:"मटकी"},{rom:["panipuri"],dev:"पानीपूरी"},{rom:["uttapam"],dev:"उत्तपम"},{rom:["dhokla"],dev:"ढोकला"}
+];
+
+let activeMonth=0;
+let allOpen=true;
+let viewMode="today"; // "today" = show today ±1 day, "all" = full month
+// how many days each month actually has; Feb runs short (29) and reuses day 1's
+// meals for the missing slot never happens — Feb just stops at 29.
+const monthDays={Sep:30,Oct:31,Nov:30,Dec:31,Jan:31,Feb:29,Mar:31,Apr:30,May:31,Jun:30,Jul:31,Aug:31};
+const day31=["स्प्राउट्स + दही","स्प्राउट्स सलाद / सब्जी + रोटी (Same)","दाल-बाटी + सलाद"];
+function daysInActiveMonth(){return monthDays[months[activeMonth]];}
+function rowFor(d){return d===31?day31:meals[(d-1)%30];}
+const openState={}; // dayIndex -> bool, per session
+for(let d=1;d<=31;d++)openState[d]=true; // start expanded so meal names are visible
+
+// figure out "today" so its card can be highlighted
+const today=new Date();
+const jsMonthNames=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const todayMonthIdx=months.indexOf(jsMonthNames[today.getMonth()]);
+const todayDate=today.getDate();
+if(todayMonthIdx>-1) activeMonth=todayMonthIdx;
+
+// map our Sep->Aug month order to real JS month numbers + figure out which
+// calendar year each column belongs to, so real weekday names can be shown.
+const monthJSNum=[8,9,10,11,0,1,2,3,4,5,6,7]; // Sep..Aug -> JS getMonth() values
+const baseYear=today.getMonth()>=8?today.getFullYear():today.getFullYear()-1; // year of "Sep" in the current cycle
+function yearForMonthIdx(i){return i<=3?baseYear:baseYear+1;}
+function weekdayFor(d){return new Date(yearForMonthIdx(activeMonth),monthJSNum[activeMonth],d).getDay();}
+const weekdaysHi=["रविवार","सोमवार","मंगलवार","बुधवार","गुरुवार","शुक्रवार","शनिवार"];
+const weekdaysHiShort=["रवि","सोम","मंगल","बुध","गुरु","शुक्र","शनि"];
+const weekdaysEn=["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
+
+const key=(d,m,i)=>`diet_${d}_${m}_${i}`;
+function get(d,m,i){return localStorage.getItem(key(d,m,i))==="1"}
+function set(d,m,i,v){
+  localStorage.setItem(key(d,m,i),v?"1":"0");
+  pushTickToCloud(d,m,i,v);
+}
+
+// ---------- editable meal text (overrides on top of the default plan) ----------
+let customMeals={};
+try{ customMeals=JSON.parse(localStorage.getItem("diet_custom_meals")||"{}"); }catch(e){ customMeals={}; }
+const mealKey=(d,m,i)=>`${d}_${m}_${i}`;
+function rowTexts(d,m){
+  return rowFor(d).map((t,i)=>{
+    const k=mealKey(d,m,i);
+    return Object.prototype.hasOwnProperty.call(customMeals,k)?customMeals[k]:t;
+  });
+}
+function saveCustomMeal(d,m,i,text){
+  text=(text||"").trim();
+  const k=mealKey(d,m,i);
+  const defaultText=rowFor(d)[i];
+  if(!text||text===defaultText){ delete customMeals[k]; }
+  else{ customMeals[k]=text; }
+  localStorage.setItem("diet_custom_meals",JSON.stringify(customMeals));
+  pushCustomMealToCloud(k,Object.prototype.hasOwnProperty.call(customMeals,k)?customMeals[k]:null);
+  render();
+}
+function editMealPrompt(d,m,i){
+  const cur=rowTexts(d,m)[i];
+  const val=prompt("Meal edit करें:",cur);
+  if(val!==null) saveCustomMeal(d,m,i,val);
+}
+function resetCustomMealsForMonth(){
+  if(!confirm(`${months[activeMonth]} महीने के सभी edited meal names default पर reset करने हैं?`))return;
+  const dayCount=daysInActiveMonth();
+  for(let d=1;d<=dayCount;d++)for(let i=0;i<3;i++){
+    const k=mealKey(d,activeMonth,i);
+    if(Object.prototype.hasOwnProperty.call(customMeals,k)){
+      delete customMeals[k];
+      pushCustomMealToCloud(k,null);
+    }
+  }
+  localStorage.setItem("diet_custom_meals",JSON.stringify(customMeals));
+  render();
+}
+
+// ================= CLOUD SYNC (Firebase) =================
+// Data local (localStorage) me turant save hota hai — chahe internet ho ya na ho.
+// Agar firebase-config.js me apni Firebase project details daali hui hain, to
+// data ek "Sync Code" ke against Firestore me bhi save hota hai. Wahi Sync Code
+// kisi bhi doosre browser/device me daalne se — browser history/data delete hone
+// ke baad bhi — sara data (ticks + edited meal names) wapas mil jata hai.
+let fbApp=null,db=null,syncDocRef=null,syncUnsub=null,applyingRemote=false;
+
+function firebaseReady(){
+  return typeof firebaseConfig!=="undefined" && firebaseConfig && firebaseConfig.apiKey && firebaseConfig.apiKey.indexOf("YOUR_")!==0 && typeof firebase!=="undefined";
+}
+function initFirebase(){
+  if(!firebaseReady()){ updateSyncStatusUI(); return; }
+  try{
+    fbApp=firebase.apps.length?firebase.app():firebase.initializeApp(firebaseConfig);
+    db=firebase.firestore();
+    try{ db.enablePersistence({synchronizeTabs:true}); }catch(e){}
+  }catch(e){ console.warn("Firebase init failed",e); return; }
+  const saved=localStorage.getItem("diet_sync_code");
+  if(saved) connectSync(saved,false);
+  updateSyncStatusUI();
+}
+function connectSync(code,isNew){
+  if(!db||!code)return;
+  code=code.trim();
+  if(!code)return;
+  localStorage.setItem("diet_sync_code",code);
+  if(syncUnsub){ syncUnsub(); syncUnsub=null; }
+  syncDocRef=db.collection("trackers").doc(code);
+  syncUnsub=syncDocRef.onSnapshot(snap=>{
+    if(snap.exists){
+      applyingRemote=true;
+      const data=snap.data();
+      if(data.ticks) Object.entries(data.ticks).forEach(([k,v])=>localStorage.setItem(k,v?"1":"0"));
+      if(data.customMeals){ customMeals=data.customMeals; localStorage.setItem("diet_custom_meals",JSON.stringify(customMeals)); }
+      applyingRemote=false;
+      render();
+    }else{
+      pushFullStateToCloud();
+    }
+  },err=>console.warn("sync error",err));
+  updateSyncStatusUI();
+}
+function disconnectSync(){
+  if(syncUnsub){ syncUnsub(); syncUnsub=null; }
+  syncDocRef=null;
+  localStorage.removeItem("diet_sync_code");
+  updateSyncStatusUI();
+}
+function pushFullStateToCloud(){
+  if(!syncDocRef||applyingRemote)return;
+  const ticks={};
+  for(let m=0;m<12;m++)for(let d=1;d<=31;d++)for(let i=0;i<3;i++){
+    const v=localStorage.getItem(key(d,m,i));
+    if(v!==null) ticks[key(d,m,i)]=v==="1";
+  }
+  syncDocRef.set({ticks,customMeals,updatedAt:Date.now()},{merge:true}).catch(()=>{});
+}
+function pushTickToCloud(d,m,i,v){
+  if(!syncDocRef||applyingRemote)return;
+  const f={};f[key(d,m,i)]=v;
+  syncDocRef.set({ticks:f,updatedAt:Date.now()},{merge:true}).catch(()=>{});
+}
+function pushCustomMealToCloud(k,val){
+  if(!syncDocRef||applyingRemote)return;
+  if(val===null){
+    syncDocRef.update({[`customMeals.${k}`]:firebase.firestore.FieldValue.delete(),updatedAt:Date.now()}).catch(()=>{});
+  }else{
+    const f={};f[k]=val;
+    syncDocRef.set({customMeals:f,updatedAt:Date.now()},{merge:true}).catch(()=>{});
+  }
+}
+function updateSyncStatusUI(){
+  const btn=document.getElementById("syncBtn");
+  if(!btn)return;
+  const code=localStorage.getItem("diet_sync_code");
+  if(!firebaseReady()){ btn.textContent="☁️"; btn.title="Cloud Sync (setup nahi hua)"; }
+  else if(code){ btn.textContent="☁️✅"; btn.title="Cloud Sync ON — code: "+code; }
+  else{ btn.textContent="☁️"; btn.title="Cloud Sync — code set karein"; }
+}
+function openSyncSettings(){
+  document.querySelectorAll(".sync-modal-backdrop").forEach(el=>el.remove());
+  const code=localStorage.getItem("diet_sync_code")||"";
+  const ready=firebaseReady();
+  const backdrop=document.createElement("div");
+  backdrop.className="sync-modal-backdrop";
+  backdrop.onclick=(e)=>{if(e.target===backdrop)backdrop.remove();};
+  backdrop.innerHTML=`<div class="sync-modal">
+    <h3>☁️ Cloud Sync</h3>
+    <p>${ready
+      ? "Ek Sync Code set karein (jaise apna naam/koi bhi word). Isi code se aapka data — browser history/data delete hone par bhi, ya kisi doosre phone/browser me bhi — wapas mil jayega. <b>Ye code kahin note kar lein.</b>"
+      : "Cloud sync abhi setup nahi hai — <code>firebase-config.js</code> file me apni Firebase project ki details daalein (README dekhein). Tab tak data sirf isi browser me local rahega."}</p>
+    ${ready?`<input id="syncCodeInput" type="text" placeholder="जैसे: rahul-diet-2026" value="${code.replace(/"/g,'&quot;')}">
+    <div class="row">
+      <button type="button" onclick="const v=document.getElementById('syncCodeInput').value.trim(); if(v){connectSync(v,true); document.querySelector('.sync-modal-backdrop').remove(); alert('Sync ON ho gaya. Code note kar lein: '+v);}">Connect</button>
+      <button type="button" class="secondary" onclick="disconnectSync(); document.querySelector('.sync-modal-backdrop').remove();">Disconnect</button>
+    </div>
+    <div class="sync-status ${code?'':'off'}">${code?("वर्तमान में ON — code: "+code):"अभी OFF है — सिर्फ local data"}</div>`
+    :`<div class="row"><button type="button" class="secondary" onclick="document.querySelector('.sync-modal-backdrop').remove()">ठीक है</button></div>`}
+  </div>`;
+  document.body.appendChild(backdrop);
+}
+
+function toggleTheme(){
+  const dark=document.documentElement.getAttribute("data-theme")==="dark";
+  document.documentElement.setAttribute("data-theme",dark?"light":"dark");
+  document.getElementById("themeBtn").textContent=dark?"🌙":"☀️";
+  localStorage.setItem("diet_theme",dark?"light":"dark");
+}
+(function initTheme(){
+  const saved=localStorage.getItem("diet_theme");
+  if(saved==="dark"){
+    document.documentElement.setAttribute("data-theme","dark");
+    document.getElementById("themeBtn").textContent="☀️";
+  }
+})();
+
+function computeStreak(){
+  let best=0,cur=0;
+  const total=daysInActiveMonth();
+  for(let d=1;d<=total;d++){
+    const done=rowFor(d).every((_,i)=>get(d,activeMonth,i));
+    if(done){cur++;best=Math.max(best,cur);}else cur=0;
+  }
+  return best;
+}
+
+function shareProgress(){
+  let done=0,dayCount=daysInActiveMonth(),total=dayCount*3;
+  for(let d=1;d<=dayCount;d++)rowFor(d).forEach((_,i)=>{if(get(d,activeMonth,i))done++});
+  const pct=Math.round(done/total*100);
+  const text=`🍱 30-Day Diet Tracker — ${months[activeMonth]}\n✅ ${done}/${total} meals पूरे (${pct}%)\n🔥 Best streak: ${computeStreak()} दिन`;
+  if(navigator.share){
+    navigator.share({text}).catch(()=>{});
+  }else if(navigator.clipboard){
+    navigator.clipboard.writeText(text).then(()=>alert("Progress copy हो गई — कहीं भी paste करें।"));
+  }else{
+    alert(text);
+  }
+}
+
+function renderPrepBanner(){
+  const el=document.getElementById("prepBanner");
+  if(activeMonth!==todayMonthIdx||todayDate>=daysInActiveMonth()){el.innerHTML="";return;}
+  const tmw=todayDate+1;
+  const row=rowFor(tmw);
+  const wd=weekdaysHi[weekdayFor(tmw)];
+  el.innerHTML=`<div class="prep-banner"><b>🛒 कल (दिन ${tmw}, ${wd}) की तैयारी</b>${row.join(" • ")}</div>`;
+}
+
+function toggleGrocery(){
+  const el=document.getElementById("groceryPanel");
+  const wasHidden=el.classList.contains("hidden");
+  if(wasHidden){
+    const freq={};
+    meals.forEach(row=>row.forEach(text=>{freq[text]=(freq[text]||0)+1;}));
+    day31.forEach(text=>{freq[text]=(freq[text]||0)+1;}); // include the day-31 menu too
+    const repeats=Object.entries(freq).filter(([,c])=>c>1).sort((a,b)=>b[1]-a[1]);
+    el.innerHTML=repeats.length
+      ?`<b style="display:block;margin-bottom:4px">🛒 इस चक्र में दोहराई गई चीज़ें (advance तैयारी के लिए)</b>`+repeats.map(([t,c])=>`${t} — ${c}x`).join(" • ")
+      :`<b style="display:block;margin-bottom:4px">🛒 दोहराई गई चीज़ें</b>कोई item दोहराया नहीं गया।`;
+  }
+  el.classList.toggle("hidden",!wasHidden);
+}
+
+function renderHeatmap(){
+  const el=document.getElementById("heatmap");
+  const total=daysInActiveMonth();
+  let html="";
+  for(let d=1;d<=total;d++){
+    const c=rowFor(d).filter((_,i)=>get(d,activeMonth,i)).length;
+    const isToday=activeMonth===todayMonthIdx&&d===todayDate;
+    html+=`<button type="button" class="heat-cell h${c} ${isToday?'today-cell':''}" title="दिन ${d} — ${weekdaysHiShort[weekdayFor(d)]} — ${c}/3" onclick="jumpToDay(${d})">${d}</button>`;
+  }
+  el.innerHTML=html;
+}
+
+function jumpToDay(d){
+  viewMode="all";
+  document.querySelectorAll(".vt-btn").forEach(b=>b.classList.toggle("active",b.dataset.mode==="all"));
+  openState[d]=true;
+  render();
+  requestAnimationFrame(()=>{
+    document.querySelector(`.day-card[data-day="${d}"]`)?.scrollIntoView({block:"center",behavior:"smooth"});
+  });
+}
+
+function setViewMode(mode){
+  viewMode=mode;
+  document.querySelectorAll(".vt-btn").forEach(b=>b.classList.toggle("active",b.dataset.mode===mode));
+  render();
+}
+
+function renderMonths(){
+  document.getElementById("selectedMonth").textContent=months[activeMonth];
+  document.getElementById("months").innerHTML=displayOrder.map(i=>
+    `<span class="month ${i===activeMonth?'active':''}" onclick="setActiveMonth(${i})">${months[i]}</span>`).join("");
+  const mq=document.getElementById("monthQuick");
+  if(!mq.dataset.built){
+    mq.innerHTML=displayOrder.map(i=>`<option value="${i}">${months[i]}</option>`).join("");
+    mq.dataset.built="1";
+    mq.addEventListener("change",()=>setActiveMonth(Number(mq.value)));
+  }
+  mq.value=activeMonth;
+}
+function setActiveMonth(i){
+  activeMonth=i;
+  renderMonths();
+  populateDayFilter();
+  render();
+}
+
+let lastAction=null; // for Undo — {type:'single',d,m,i,prev} or {type:'bulk',items:[{d,m,i,prev}]}
+
+function toggleMeal(d,m,i,val){
+  lastAction={type:"single",d,m,i,prev:!val};
+  set(d,m,i,val);
+  render();
+}
+function markAllDay(e,d){
+  e.stopPropagation();
+  const allDone=[0,1,2].every(i=>get(d,activeMonth,i));
+  const newVal=!allDone;
+  lastAction={type:"bulk",items:[0,1,2].map(i=>({d,m:activeMonth,i,prev:get(d,activeMonth,i)}))};
+  [0,1,2].forEach(i=>set(d,activeMonth,i,newVal));
+  render();
+}
+function undoLast(){
+  if(!lastAction){alert("अभी undo करने के लिए कुछ नहीं है।");return;}
+  if(lastAction.type==="single"){
+    set(lastAction.d,lastAction.m,lastAction.i,lastAction.prev);
+  }else{
+    lastAction.items.forEach(it=>set(it.d,it.m,it.i,it.prev));
+  }
+  lastAction=null;
+  render();
+}
+
+function toggleCard(dayEl){
+  const d=dayEl.dataset.day;
+  openState[d]=!openState[d];
+  dayEl.classList.toggle("open",openState[d]);
+}
+function toggleAll(){
+  allOpen=!allOpen;
+  viewMode="all"; // opening/closing everything only makes sense against the full month
+  document.querySelectorAll(".vt-btn").forEach(b=>b.classList.toggle("active",b.dataset.mode==="all"));
+  for(let d=1;d<=31;d++)openState[d]=allOpen;
+  document.getElementById("toggleAllBtn").textContent=allOpen?"सभी बंद करें":"सभी खोलें";
+  render();
+}
+
+function render(){
+  const q=document.getElementById("search").value.trim().toLowerCase();
+  const sf=document.getElementById("statusFilter").value;
+  const df=document.getElementById("dayFilter").value;
+  const dayCount=daysInActiveMonth();
+  let html="",visible=0;
+
+  for(let d=1;d<=dayCount;d++){
+    const row=rowTexts(d,activeMonth);
+    const wd=weekdayFor(d);
+    const combined=(d+" "+row.join(" ")+" "+weekdaysHi[wd]+" "+weekdaysHiShort[wd]+" "+weekdaysEn[wd]).toLowerCase();
+    let matchText=!q||combined.includes(q);
+    if(!matchText&&q&&q.length>=3){
+      matchText=translit.some(t=>t.rom.some(r=>r.includes(q)||q.includes(r))&&row.some(text=>text.includes(t.dev)));
+    }
+    const dayMatch=df==="all"||df===String(d);
+    const inTodayWindow=activeMonth===todayMonthIdx&&d>=Math.max(1,todayDate-1)&&d<=Math.min(dayCount,todayDate+1);
+    const rangeMatch=viewMode==="all"||activeMonth!==todayMonthIdx||inTodayWindow;
+    const completed=row.filter((_,i)=>get(d,activeMonth,i)).length;
+    const done=completed===3;
+    const statusMatch=sf==="all"||(sf==="done"&&done)||(sf==="pending"&&!done);
+    if(!matchText||!dayMatch||!statusMatch||!rangeMatch)continue;
+    visible++;
+    const isOpen=openState[d]||false;
+    const pct=Math.round(completed/3*100);
+    const isBonus=false;
+
+    const isToday=(activeMonth===todayMonthIdx&&d===todayDate);
+    html+=`<article class="day-card ${done?'done':''} ${isOpen?'open':''} ${isToday?'today':''}" data-day="${d}">
+      <div class="day-head" role="button" tabindex="0" onclick="toggleCard(this.parentElement)" onkeydown="if(event.key==='Enter')toggleCard(this.parentElement)">
+        <span class="day-badge" style="--pct:${pct}"><span>${d}</span></span>
+        <span class="day-title">दिन ${d} <span class="wd-badge">${weekdaysHiShort[wd]}</span>${isBonus?' <small style="display:inline">(दिन 1 दोहराया)</small>':''}<small>${completed}/3 पूरा</small></span>
+        <span class="chev">▾</span>
+        <button type="button" class="mark-all-btn" onclick="markAllDay(event,${d})" title="सभी meals एक साथ tick/untick करें">${done?'↺':'✔️'}</button>
+      </div>
+      <div class="day-body">
+        ${row.map((text,i)=>{
+          const checked=get(d,activeMonth,i);
+          return `<label class="meal-row m${i} ${checked?'checked':''}">
+            <input type="checkbox" ${checked?"checked":""} onchange="toggleMeal(${d},${activeMonth},${i},this.checked)">
+            <span class="meal-icon">${mealMeta[i].icon}</span>
+            <span class="meal-text">${text}<small>${mealMeta[i].label}</small></span>
+            <button type="button" class="edit-meal-btn" onclick="event.preventDefault();event.stopPropagation();editMealPrompt(${d},${activeMonth},${i})" title="Meal edit करें">✏️</button>
+          </label>`;
+        }).join("")}
+      </div>
+    </article>`;
+  }
+
+  document.getElementById("dayList").innerHTML=visible?html:`<div class="empty">कोई matching record नहीं मिला।</div>`;
+  updateStats();
+  renderPrepBanner();
+  renderHeatmap();
+
+  const isTable=viewMode==="table";
+  document.querySelector(".heatmap-wrap").classList.toggle("hidden",isTable);
+  document.getElementById("dayList").classList.toggle("hidden",isTable);
+  document.getElementById("tableView").classList.toggle("hidden",!isTable);
+  if(isTable) renderTable();
+}
+
+function renderTable(){
+  document.getElementById("tableMonthLabel").textContent=months[activeMonth]+" — सभी दिन";
+  const dayCount=daysInActiveMonth();
+  let html="";
+  for(let d=1;d<=dayCount;d++){
+    const wd=weekdayFor(d);
+    const texts=rowTexts(d,activeMonth);
+    texts.forEach((t,i)=>{
+      const checked=get(d,activeMonth,i);
+      html+=`<tr class="${checked?'row-done':''}">
+        <td class="td-day">दिन ${d}<small>${weekdaysHiShort[wd]}</small></td>
+        <td class="td-meal">${mealMeta[i].icon} ${mealMeta[i].label}</td>
+        <td><input type="text" class="meal-edit" value="${t.replace(/"/g,"&quot;")}" onchange="saveCustomMeal(${d},${activeMonth},${i},this.value)"></td>
+        <td class="td-done"><input type="checkbox" ${checked?"checked":""} onchange="toggleMeal(${d},${activeMonth},${i},this.checked)"></td>
+      </tr>`;
+    });
+  }
+  document.getElementById("mealTableBody").innerHTML=html;
+}
+
+function updateStats(){
+  const dayCount=daysInActiveMonth();
+  let done=0,total=dayCount*3;
+  document.getElementById("totalDays").textContent=dayCount;
+  document.getElementById("totalMeals").textContent=total;
+  for(let d=1;d<=dayCount;d++)rowFor(d).forEach((_,i)=>{if(get(d,activeMonth,i))done++});
+  const pct=Math.round(done/total*100);
+  document.getElementById("completed").textContent=done;
+  document.getElementById("pending").textContent=total-done;
+  document.getElementById("progress").textContent=pct+"%";
+  document.getElementById("streak").textContent=computeStreak();
+  document.getElementById("quickProgress").textContent=months[activeMonth]+" • "+pct+"%";
+}
+
+function clearAll(){
+  if(confirm(`क्या ${months[activeMonth]} महीने की सारी tracking reset करनी है?`)){
+    const dayCount=daysInActiveMonth();
+    for(let d=1;d<=dayCount;d++)rowFor(d).forEach((_,i)=>set(d,activeMonth,i,false));
+    render();
+  }
+}
+
+function populateDayFilter(){
+  const sel=document.getElementById("dayFilter");
+  const dayCount=daysInActiveMonth();
+  const current=sel.value;
+  sel.innerHTML=`<option value="all">सभी दिन</option>`+Array.from({length:dayCount},(_,i)=>`<option value="${i+1}">दिन ${i+1}</option>`).join("");
+  sel.value=(current!=="all"&&Number(current)<=dayCount)?current:"all";
+}
+
+let hadSearchQuery=false;
+document.getElementById("search").addEventListener("input",function(){
+  const v=this.value.trim();
+  if(v&&viewMode==="today")setViewMode("all");else render();
+  if(v&&!hadSearchQuery){
+    document.getElementById("dayList").scrollIntoView({block:"start",behavior:"smooth"});
+  }
+  hadSearchQuery=!!v;
+});
+document.getElementById("statusFilter").addEventListener("change",render);
+document.getElementById("dayFilter").addEventListener("change",function(){
+  if(this.value!=="all"&&viewMode==="today")setViewMode("all");else render();
+});
+
+renderMonths();
+populateDayFilter();
+render();
+initFirebase();
+
+// PWA: register service worker so the app installs like a native app and works offline
+if("serviceWorker" in navigator){
+  window.addEventListener("load",()=>{
+    navigator.serviceWorker.register("sw.js").catch(()=>{});
+  });
+}
+
+// header is position:fixed now — keep body padding in sync with its real height
+// so content never starts underneath it (handles wrapping/font-load height changes).
+function syncHeaderPad(){
+  const h=document.querySelector("header");
+  if(h) document.body.style.paddingTop=h.getBoundingClientRect().height+"px";
+}
+syncHeaderPad();
+window.addEventListener("resize",syncHeaderPad);
+window.addEventListener("load",syncHeaderPad);
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(syncHeaderPad);
+
+// bring the active month chip and today's card into view
+requestAnimationFrame(()=>{
+  syncHeaderPad();
+  document.querySelector(".month.active")?.scrollIntoView({inline:"center",block:"nearest"});
+  document.querySelector(".day-card.today")?.scrollIntoView({block:"center",behavior:"smooth"});
+});
+</script>
+</body>
+</html>
