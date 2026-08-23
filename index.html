@@ -214,7 +214,7 @@ button:active{transform:scale(.97)}
     <span class="h-title">30-Day Diet Tracker</span>
     <button class="theme-toggle" onclick="window.print()" title="Print">🖨️</button>
     <button class="theme-toggle" onclick="shareProgress()" title="Share">📤</button>
-    <button class="theme-toggle" id="syncBtn" onclick="openSyncSettings()" title="Cloud Sync">☁️</button>
+    <button class="theme-toggle" id="syncBtn" onclick="openAuthModal()" title="Login / Account">👤</button>
     <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()">🌙</button>
   </div>
   <div class="wrap header-search">
@@ -293,6 +293,7 @@ button:active{transform:scale(.97)}
 
 <!-- Firebase (cloud sync) — config values are in firebase-config.js -->
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
 <script src="firebase-config.js"></script>
 
@@ -445,13 +446,16 @@ function resetCustomMealsForMonth(){
   render();
 }
 
-// ================= CLOUD SYNC (Firebase) =================
+// ================= LOGIN + CLOUD SYNC (Firebase Auth + Firestore) =================
 // Data local (localStorage) me turant save hota hai — chahe internet ho ya na ho.
-// Agar firebase-config.js me apni Firebase project details daali hui hain, to
-// data ek "Sync Code" ke against Firestore me bhi save hota hai. Wahi Sync Code
-// kisi bhi doosre browser/device me daalne se — browser history/data delete hone
-// ke baad bhi — sara data (ticks + edited meal names) wapas mil jata hai.
-let fbApp=null,db=null,syncDocRef=null,syncUnsub=null,applyingRemote=false;
+// Agar firebase-config.js me apni Firebase project details daali hui hain aur
+// Authentication me Email/Password enable hai, to login karne par user ka data
+// uske apne account (UID) ke against Firestore me save hota hai. Wahi email/password
+// se kisi bhi doosre device/browser me login karte hi — browser data delete hone
+// ke baad bhi — sirf usi user ka data wapas mil jata hai. Login na karein to app
+// guest mode me sirf isi browser me (local) kaam karta rehta hai.
+let fbApp=null,auth=null,db=null,currentUser=null,syncDocRef=null,syncUnsub=null,applyingRemote=false;
+let authMode="login"; // 'login' | 'signup'
 
 function firebaseReady(){
   return typeof firebaseConfig!=="undefined" && firebaseConfig && firebaseConfig.apiKey && firebaseConfig.apiKey.indexOf("YOUR_")!==0 && typeof firebase!=="undefined";
@@ -460,39 +464,46 @@ function initFirebase(){
   if(!firebaseReady()){ updateSyncStatusUI(); return; }
   try{
     fbApp=firebase.apps.length?firebase.app():firebase.initializeApp(firebaseConfig);
+    auth=firebase.auth();
     db=firebase.firestore();
     try{ db.enablePersistence({synchronizeTabs:true}); }catch(e){}
   }catch(e){ console.warn("Firebase init failed",e); return; }
-  const saved=localStorage.getItem("diet_sync_code");
-  if(saved) connectSync(saved,false);
-  updateSyncStatusUI();
+  auth.onAuthStateChanged(user=>{
+    const prevUid=currentUser?currentUser.uid:null;
+    currentUser=user;
+    if(user){
+      if(prevUid!==user.uid) clearAllLocalData(); // switching account — don't mix data
+      connectUserSync(user.uid);
+    }else{
+      if(syncUnsub){ syncUnsub(); syncUnsub=null; }
+      syncDocRef=null;
+      if(prevUid) clearAllLocalData(); // explicit logout — clear so next login/guest doesn't see leftover data
+      render();
+    }
+    updateSyncStatusUI();
+  });
 }
-function connectSync(code,isNew){
-  if(!db||!code)return;
-  code=code.trim();
-  if(!code)return;
-  localStorage.setItem("diet_sync_code",code);
+function clearAllLocalData(){
+  for(let m=0;m<12;m++)for(let d=1;d<=31;d++)for(let i=0;i<3;i++) localStorage.removeItem(key(d,m,i));
+  customMeals={};
+  localStorage.setItem("diet_custom_meals","{}");
+}
+function connectUserSync(uid){
+  if(!db)return;
   if(syncUnsub){ syncUnsub(); syncUnsub=null; }
-  syncDocRef=db.collection("trackers").doc(code);
+  syncDocRef=db.collection("users").doc(uid);
   syncUnsub=syncDocRef.onSnapshot(snap=>{
+    applyingRemote=true;
     if(snap.exists){
-      applyingRemote=true;
       const data=snap.data();
       if(data.ticks) Object.entries(data.ticks).forEach(([k,v])=>localStorage.setItem(k,v?"1":"0"));
       if(data.customMeals){ customMeals=data.customMeals; localStorage.setItem("diet_custom_meals",JSON.stringify(customMeals)); }
-      applyingRemote=false;
-      render();
     }else{
       pushFullStateToCloud();
     }
+    applyingRemote=false;
+    render();
   },err=>console.warn("sync error",err));
-  updateSyncStatusUI();
-}
-function disconnectSync(){
-  if(syncUnsub){ syncUnsub(); syncUnsub=null; }
-  syncDocRef=null;
-  localStorage.removeItem("diet_sync_code");
-  updateSyncStatusUI();
 }
 function pushFullStateToCloud(){
   if(!syncDocRef||applyingRemote)return;
@@ -520,32 +531,85 @@ function pushCustomMealToCloud(k,val){
 function updateSyncStatusUI(){
   const btn=document.getElementById("syncBtn");
   if(!btn)return;
-  const code=localStorage.getItem("diet_sync_code");
-  if(!firebaseReady()){ btn.textContent="☁️"; btn.title="Cloud Sync (setup nahi hua)"; }
-  else if(code){ btn.textContent="☁️✅"; btn.title="Cloud Sync ON — code: "+code; }
-  else{ btn.textContent="☁️"; btn.title="Cloud Sync — code set karein"; }
+  if(!firebaseReady()){ btn.textContent="👤"; btn.title="Login (setup nahi hua)"; }
+  else if(currentUser){ btn.textContent="👤✅"; btn.title="Logged in: "+currentUser.email; }
+  else{ btn.textContent="👤"; btn.title="Login / Sign up karein"; }
 }
-function openSyncSettings(){
-  document.querySelectorAll(".sync-modal-backdrop").forEach(el=>el.remove());
-  const code=localStorage.getItem("diet_sync_code")||"";
-  const ready=firebaseReady();
+
+function openAuthModal(){
+  closeAuthModal();
   const backdrop=document.createElement("div");
   backdrop.className="sync-modal-backdrop";
-  backdrop.onclick=(e)=>{if(e.target===backdrop)backdrop.remove();};
-  backdrop.innerHTML=`<div class="sync-modal">
-    <h3>☁️ Cloud Sync</h3>
-    <p>${ready
-      ? "Ek Sync Code set karein (jaise apna naam/koi bhi word). Isi code se aapka data — browser history/data delete hone par bhi, ya kisi doosre phone/browser me bhi — wapas mil jayega. <b>Ye code kahin note kar lein.</b>"
-      : "Cloud sync abhi setup nahi hai — <code>firebase-config.js</code> file me apni Firebase project ki details daalein (README dekhein). Tab tak data sirf isi browser me local rahega."}</p>
-    ${ready?`<input id="syncCodeInput" type="text" placeholder="जैसे: rahul-diet-2026" value="${code.replace(/"/g,'&quot;')}">
-    <div class="row">
-      <button type="button" onclick="const v=document.getElementById('syncCodeInput').value.trim(); if(v){connectSync(v,true); document.querySelector('.sync-modal-backdrop').remove(); alert('Sync ON ho gaya. Code note kar lein: '+v);}">Connect</button>
-      <button type="button" class="secondary" onclick="disconnectSync(); document.querySelector('.sync-modal-backdrop').remove();">Disconnect</button>
-    </div>
-    <div class="sync-status ${code?'':'off'}">${code?("वर्तमान में ON — code: "+code):"अभी OFF है — सिर्फ local data"}</div>`
-    :`<div class="row"><button type="button" class="secondary" onclick="document.querySelector('.sync-modal-backdrop').remove()">ठीक है</button></div>`}
-  </div>`;
+  backdrop.onclick=(e)=>{if(e.target===backdrop)closeAuthModal();};
+  backdrop.appendChild(buildAuthModalEl());
   document.body.appendChild(backdrop);
+}
+function closeAuthModal(){
+  document.querySelectorAll(".sync-modal-backdrop").forEach(el=>el.remove());
+}
+function buildAuthModalEl(){
+  const wrap=document.createElement("div");
+  wrap.className="sync-modal";
+  if(!firebaseReady()){
+    wrap.innerHTML=`<h3>👤 Account Login</h3>
+      <p>Login abhi setup nahi hai — <code>firebase-config.js</code> me apni Firebase project ki details daalein aur Authentication me Email/Password method ON karein (README dekhein). Tab tak data sirf isi browser me local rahega.</p>
+      <div class="row"><button type="button" class="secondary" onclick="closeAuthModal()">ठीक है</button></div>`;
+    return wrap;
+  }
+  if(currentUser){
+    wrap.innerHTML=`<h3>👤 Aapka Account</h3>
+      <p>Logged in as <b>${currentUser.email}</b>. Aapka data isi account ke against cloud me save ho raha hai — kisi bhi device par isi email/password se login karke sirf yahi data milega.</p>
+      <div class="row"><button type="button" class="secondary" onclick="doLogout()">Logout</button><button type="button" onclick="closeAuthModal()">बंद करें</button></div>`;
+    return wrap;
+  }
+  wrap.innerHTML=`<h3>👤 ${authMode==="login"?"Login":"Naya Account"}</h3>
+    <p>${authMode==="login"?"Apne account me login karein — data cloud se sync ho jayega.":"Email aur password se account banayein — aapka data isi account me alag se surakshit save hoga."}</p>
+    <input id="authEmail" type="email" placeholder="Email" autocomplete="username">
+    <input id="authPassword" type="password" placeholder="Password (kam se kam 6 characters)" autocomplete="${authMode==='login'?'current-password':'new-password'}">
+    <div id="authError" style="font-size:11.5px;color:#C0392B;margin:-4px 0 8px;min-height:14px"></div>
+    <div class="row">
+      <button type="button" onclick="${authMode==='login'?'submitLogin()':'submitSignup()'}">${authMode==="login"?"Login":"Account Banayein"}</button>
+    </div>
+    <p style="text-align:center;font-size:12px;margin-top:10px;color:var(--muted)">
+      ${authMode==="login"
+        ? `Account nahi hai? <a href="javascript:void(0)" onclick="switchAuthMode('signup')" style="color:var(--primary)">Sign up karein</a><br><a href="javascript:void(0)" onclick="submitForgotPassword()" style="color:var(--primary)">Password bhool gaye?</a>`
+        : `Pehle se account hai? <a href="javascript:void(0)" onclick="switchAuthMode('login')" style="color:var(--primary)">Login karein</a>`}
+    </p>
+    <div class="row"><button type="button" class="secondary" onclick="closeAuthModal()">Guest mode (सिर्फ local)</button></div>`;
+  return wrap;
+}
+function switchAuthMode(m){ authMode=m; openAuthModal(); }
+function showAuthError(msg){ const el=document.getElementById("authError"); if(el) el.textContent=msg; }
+async function submitLogin(){
+  const email=document.getElementById("authEmail").value.trim();
+  const pw=document.getElementById("authPassword").value;
+  if(!email||!pw){ showAuthError("Email aur password dono bharein।"); return; }
+  try{ await auth.signInWithEmailAndPassword(email,pw); closeAuthModal(); }
+  catch(e){ showAuthError(friendlyAuthError(e)); }
+}
+async function submitSignup(){
+  const email=document.getElementById("authEmail").value.trim();
+  const pw=document.getElementById("authPassword").value;
+  if(!email||!pw){ showAuthError("Email aur password dono bharein।"); return; }
+  if(pw.length<6){ showAuthError("Password kam se kam 6 characters ka hona chahiye।"); return; }
+  try{ await auth.createUserWithEmailAndPassword(email,pw); closeAuthModal(); }
+  catch(e){ showAuthError(friendlyAuthError(e)); }
+}
+async function submitForgotPassword(){
+  const email=document.getElementById("authEmail").value.trim();
+  if(!email){ showAuthError("Pehle upar email likhein, phir dobara dabayein।"); return; }
+  try{ await auth.sendPasswordResetEmail(email); showAuthError("✅ Reset link email par bhej diya gaya है।"); }
+  catch(e){ showAuthError(friendlyAuthError(e)); }
+}
+async function doLogout(){ try{ await auth.signOut(); }catch(e){} closeAuthModal(); }
+function friendlyAuthError(e){
+  const c=(e&&e.code)||"";
+  if(c.includes("email-already-in-use")) return "Ye email pehle se registered hai — Login try karein।";
+  if(c.includes("invalid-email")) return "Email sahi format me likhein।";
+  if(c.includes("weak-password")) return "Password kam se kam 6 characters ka rakhein।";
+  if(c.includes("user-not-found")||c.includes("wrong-password")||c.includes("invalid-credential")) return "Email ya password galat hai।";
+  if(c.includes("network-request-failed")) return "Internet connection check karein।";
+  return (e&&e.message)?e.message:"Kuch galat ho gaya, dobara try karein।";
 }
 
 function toggleTheme(){
