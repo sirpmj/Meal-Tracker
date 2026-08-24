@@ -221,7 +221,7 @@ button:active{transform:scale(.97)}
     <span class="h-title">30-Day Diet Tracker</span>
     <button class="theme-toggle" onclick="window.print()" title="Print">🖨️</button>
     <button class="theme-toggle" onclick="shareProgress()" title="Share">📤</button>
-    <button class="theme-toggle" id="syncBtn" onclick="openAuthModal()" title="Login / Account">👤</button>
+    <button class="theme-toggle" id="syncBtn" onclick="openAuthModal()" title="Login / Account">🧑‍💼</button>
     <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()">🌙</button>
   </div>
   <div class="wrap header-search">
@@ -549,9 +549,9 @@ function pushCustomMealToCloud(k,val){
 function updateSyncStatusUI(){
   const btn=document.getElementById("syncBtn");
   if(!btn)return;
-  if(!firebaseReady()){ btn.textContent="👤"; btn.title="Login (setup nahi hua)"; }
-  else if(currentUser){ btn.textContent="👤✅"; btn.title="Logged in: "+currentUser.email; }
-  else{ btn.textContent="👤"; btn.title="Login / Sign up karein"; }
+  if(!firebaseReady()){ btn.textContent="🧑‍💼"; btn.title="Login (setup nahi hua)"; }
+  else if(currentUser){ btn.textContent="🧑‍💼✅"; btn.title="Logged in: "+currentUser.email; }
+  else{ btn.textContent="🧑‍💼"; btn.title="Login / Sign up karein"; }
 }
 
 function openAuthModal(){
@@ -569,18 +569,18 @@ function buildAuthModalEl(){
   const wrap=document.createElement("div");
   wrap.className="sync-modal";
   if(!firebaseReady()){
-    wrap.innerHTML=`<h3>👤 Account Login</h3>
+    wrap.innerHTML=`<h3>🧑‍💼 Account Login</h3>
       <p>Login abhi setup nahi hai — <code>firebase-config.js</code> me apni Firebase project ki details daalein aur Authentication me Email/Password method ON karein (README dekhein). Tab tak data sirf isi browser me local rahega.</p>
       <div class="row"><button type="button" class="secondary" onclick="closeAuthModal()">ठीक है</button></div>`;
     return wrap;
   }
   if(currentUser){
-    wrap.innerHTML=`<h3>👤 Aapka Account</h3>
+    wrap.innerHTML=`<h3>🧑‍💼 Aapka Account</h3>
       <p>Logged in as <b>${currentUser.email}</b>. Aapka data isi account ke against cloud me save ho raha hai — kisi bhi device par isi email/password se login karke sirf yahi data milega.</p>
       <div class="row"><button type="button" class="secondary" onclick="doLogout()">Logout</button><button type="button" onclick="closeAuthModal()">बंद करें</button></div>`;
     return wrap;
   }
-  wrap.innerHTML=`<h3>👤 ${authMode==="login"?"Login":"Naya Account"}</h3>
+  wrap.innerHTML=`<h3>🧑‍💼 ${authMode==="login"?"Login":"Naya Account"}</h3>
     <p>${authMode==="login"?"Apne account me login karein — data cloud se sync ho jayega.":"Email aur password se account banayein — aapka data isi account me alag se surakshit save hoga."}</p>
     <input id="authEmail" type="email" placeholder="Email" autocomplete="username">
     <input id="authPassword" type="password" placeholder="Password (kam se kam 6 characters)" autocomplete="${authMode==='login'?'current-password':'new-password'}">
