@@ -107,6 +107,7 @@ main{padding-bottom:60px}
 /* ---------- controls ---------- */
 .controls{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;box-shadow:var(--shadow);margin-bottom:12px}
 .controls-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;align-items:stretch}
+.controls-row.four-col{grid-template-columns:repeat(4,minmax(0,1fr))}
 .controls-row + .controls-row{margin-top:6px}
 .controls-row select,.controls-row button{width:100%;min-width:0;overflow:hidden;text-overflow:ellipsis}
 input,select,button{font:inherit}
@@ -170,6 +171,12 @@ button:active{transform:scale(.97)}
 #mealTable .td-done{text-align:center}
 #mealTable .td-done input{width:19px;height:19px;accent-color:var(--primary);cursor:pointer}
 .edit-meal-btn{border:0;background:transparent;color:var(--muted);font-size:11.5px;cursor:pointer;padding:2px 4px;flex:0 0 auto}
+.td-meal-text{font-size:11.5px;line-height:1.4;min-width:150px}
+.td-edit{white-space:nowrap;text-align:center}
+.scope-btn{border:0;background:var(--line);color:var(--primary-dark);border-radius:6px;padding:5px 8px;font-size:11px;font-weight:800;cursor:pointer;margin:0 2px}
+.scope-btn:active{transform:scale(.93)}
+.edit-fields label{font-size:11.5px;color:var(--muted);display:block;margin-bottom:3px}
+.edit-fields input{margin-bottom:8px}
 
 /* ---------- sync modal ---------- */
 .sync-modal-backdrop{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:60;display:flex;align-items:center;justify-content:center;padding:16px}
@@ -250,14 +257,16 @@ button:active{transform:scale(.97)}
         <option value="pending">केवल Pending</option>
         <option value="done">केवल Completed</option>
       </select>
-      <select id="dayFilter"><option value="all">सभी दिन</option></select>
       <button onclick="clearAll()">Reset महीना</button>
-    </div>
-    <div class="controls-row">
-      <button class="secondary" id="toggleAllBtn" onclick="toggleAll()">सभी बंद करें</button>
-      <button class="secondary" onclick="undoLast()">↩️ Undo</button>
       <button class="secondary" onclick="toggleGrocery()">🛒 दोहराई गई चीज़ें</button>
     </div>
+    <div class="controls-row four-col">
+      <button class="secondary" id="toggleAllBtn" onclick="toggleAll()">सभी बंद करें</button>
+      <button class="secondary" onclick="undoLast()">↩️ Undo</button>
+      <button class="secondary" onclick="exportBackup()">💾 Backup लें</button>
+      <button class="secondary" onclick="triggerRestoreFile()">📥 Restore करें</button>
+    </div>
+    <input type="file" id="restoreFileInput" accept="application/json,.json" class="hidden" onchange="handleRestoreFile(event)">
   </section>
 
   <section class="month-bar">
@@ -277,13 +286,19 @@ button:active{transform:scale(.97)}
 
   <section id="tableView" class="hidden">
     <div class="table-toolbar">
-      <span>📋 <b id="tableMonthLabel"></b> — सभी meals, edit करने के लिए text पर टैप करें</span>
+      <span>📋 <b id="tableMonthLabel"></b> — <b>M</b> = सिर्फ इस महीने के लिए edit, <b>Y</b> = पूरे साल के लिए edit</span>
       <button type="button" class="secondary" onclick="resetCustomMealsForMonth()">🔄 Naam Reset</button>
     </div>
     <div class="table-scroll">
       <table id="mealTable">
         <thead>
-          <tr><th>दिन</th><th>Meal</th><th>Text (edit करें)</th><th>Done</th></tr>
+          <tr>
+            <th>दिन</th>
+            <th>🌅 सुबह का नाश्ता</th>
+            <th>☀️ दोपहर का भोजन (लंच)</th>
+            <th>🌙 शाम का भोजन (डिनर)</th>
+            <th>Edit</th>
+          </tr>
         </thead>
         <tbody id="mealTableBody"></tbody>
       </table>
@@ -430,7 +445,10 @@ function saveCustomMeal(d,m,i,text){
 function editMealPrompt(d,m,i){
   const cur=rowTexts(d,m)[i];
   const val=prompt("Meal edit करें:",cur);
-  if(val!==null) saveCustomMeal(d,m,i,val);
+  if(val===null)return;
+  const wholeYear=confirm(`यह बदलाव कहाँ लागू करें?\n\nOK दबाएं = पूरे साल (सभी महीनों) के लिए\nCancel दबाएं = सिर्फ ${months[m]} महीने के लिए`);
+  if(wholeYear){ for(let mm=0;mm<12;mm++) saveCustomMeal(d,mm,i,val); }
+  else{ saveCustomMeal(d,m,i,val); }
 }
 function resetCustomMealsForMonth(){
   if(!confirm(`${months[activeMonth]} महीने के सभी edited meal names default पर reset करने हैं?`))return;
@@ -681,7 +699,7 @@ function renderHeatmap(){
   for(let d=1;d<=total;d++){
     const c=rowFor(d).filter((_,i)=>get(d,activeMonth,i)).length;
     const isToday=activeMonth===todayMonthIdx&&d===todayDate;
-    html+=`<button type="button" class="heat-cell h${c} ${isToday?'today-cell':''}" title="दिन ${d} — ${weekdaysHiShort[weekdayFor(d)]} — ${c}/3" onclick="jumpToDay(${d})">${d}</button>`;
+    html+=`<button type="button" class="heat-cell h${c} ${isToday?'today-cell':''}" title="दिन ${d} — ${weekdaysHi[weekdayFor(d)]} — ${c}/3" onclick="jumpToDay(${d})">${d}</button>`;
   }
   el.innerHTML=html;
 }
@@ -717,7 +735,6 @@ function renderMonths(){
 function setActiveMonth(i){
   activeMonth=i;
   renderMonths();
-  populateDayFilter();
   render();
 }
 
@@ -764,7 +781,7 @@ function toggleAll(){
 function render(){
   const q=document.getElementById("search").value.trim().toLowerCase();
   const sf=document.getElementById("statusFilter").value;
-  const df=document.getElementById("dayFilter").value;
+  const df="all"; // dedicated day dropdown removed from UI — use search or the month overview (heatmap) to jump to a specific day
   const dayCount=daysInActiveMonth();
   let html="",visible=0;
 
@@ -792,7 +809,7 @@ function render(){
     html+=`<article class="day-card ${done?'done':''} ${isOpen?'open':''} ${isToday?'today':''}" data-day="${d}">
       <div class="day-head" role="button" tabindex="0" onclick="toggleCard(this.parentElement)" onkeydown="if(event.key==='Enter')toggleCard(this.parentElement)">
         <span class="day-badge" style="--pct:${pct}"><span>${d}</span></span>
-        <span class="day-title">दिन ${d} <span class="wd-badge">${weekdaysHiShort[wd]}</span>${isBonus?' <small style="display:inline">(दिन 1 दोहराया)</small>':''}<small>${completed}/3 पूरा</small></span>
+        <span class="day-title">दिन ${d} <span class="wd-badge">${weekdaysHi[wd]}</span>${isBonus?' <small style="display:inline">(दिन 1 दोहराया)</small>':''}<small>${completed}/3 पूरा</small></span>
         <span class="chev">▾</span>
         <button type="button" class="mark-all-btn" onclick="markAllDay(event,${d})" title="सभी meals एक साथ tick/untick करें">${done?'↺':'✔️'}</button>
       </div>
@@ -829,17 +846,59 @@ function renderTable(){
   for(let d=1;d<=dayCount;d++){
     const wd=weekdayFor(d);
     const texts=rowTexts(d,activeMonth);
-    texts.forEach((t,i)=>{
-      const checked=get(d,activeMonth,i);
-      html+=`<tr class="${checked?'row-done':''}">
-        <td class="td-day">दिन ${d}<small>${weekdaysHiShort[wd]}</small></td>
-        <td class="td-meal">${mealMeta[i].icon} ${mealMeta[i].label}</td>
-        <td><input type="text" class="meal-edit" value="${t.replace(/"/g,"&quot;")}" onchange="saveCustomMeal(${d},${activeMonth},${i},this.value)"></td>
-        <td class="td-done"><input type="checkbox" ${checked?"checked":""} onchange="toggleMeal(${d},${activeMonth},${i},this.checked)"></td>
-      </tr>`;
-    });
+    const doneCount=[0,1,2].filter(i=>get(d,activeMonth,i)).length;
+    html+=`<tr class="${doneCount===3?'row-done':''}">
+      <td class="td-day">दिन ${d}<small>${weekdaysHi[wd]}</small></td>
+      <td class="td-meal-text">${texts[0]}</td>
+      <td class="td-meal-text">${texts[1]}</td>
+      <td class="td-meal-text">${texts[2]}</td>
+      <td class="td-edit">
+        <button type="button" class="scope-btn" onclick="openDayEditModal(${d},'month')" title="सिर्फ ${months[activeMonth]} महीने के लिए edit करें">M</button>
+        <button type="button" class="scope-btn" onclick="openDayEditModal(${d},'year')" title="पूरे साल (सभी महीनों) के लिए edit करें">Y</button>
+      </td>
+    </tr>`;
   }
   document.getElementById("mealTableBody").innerHTML=html;
+}
+
+// M = save only for the currently active month; Y = save for this day across all 12 months
+function openDayEditModal(d,scope){
+  document.querySelectorAll(".sync-modal-backdrop").forEach(el=>el.remove());
+  const texts=rowTexts(d,activeMonth);
+  const wd=weekdaysHi[weekdayFor(d)];
+  const backdrop=document.createElement("div");
+  backdrop.className="sync-modal-backdrop";
+  backdrop.onclick=(e)=>{if(e.target===backdrop)backdrop.remove();};
+  const modal=document.createElement("div");
+  modal.className="sync-modal";
+  const esc=s=>String(s).replace(/"/g,"&quot;");
+  modal.innerHTML=`<h3>✏️ दिन ${d} (${wd}) — meals edit करें</h3>
+    <p>${scope==="year"?`यह बदलाव <b>पूरे साल</b> के सभी 12 महीनों में दिन ${d} पर लागू होगा।`:`यह बदलाव सिर्फ <b>${months[activeMonth]}</b> महीने के दिन ${d} पर लागू होगा।`}</p>
+    <div class="edit-fields">
+      <label>🌅 सुबह का नाश्ता</label>
+      <input id="editM0" type="text" value="${esc(texts[0])}">
+      <label>☀️ दोपहर का भोजन</label>
+      <input id="editM1" type="text" value="${esc(texts[1])}">
+      <label>🌙 शाम का भोजन</label>
+      <input id="editM2" type="text" value="${esc(texts[2])}">
+    </div>
+    <div class="row">
+      <button type="button" class="secondary" id="dayEditCancel">रद्द करें</button>
+      <button type="button" id="dayEditSave">${scope==="year"?"पूरे साल के लिए Save":"सिर्फ महीने के लिए Save"}</button>
+    </div>`;
+  backdrop.appendChild(modal);
+  document.body.appendChild(backdrop);
+  modal.querySelector("#dayEditCancel").onclick=()=>backdrop.remove();
+  modal.querySelector("#dayEditSave").onclick=()=>{
+    const vals=[0,1,2].map(i=>document.getElementById("editM"+i).value);
+    if(scope==="year"){
+      for(let m=0;m<12;m++) vals.forEach((v,i)=>saveCustomMeal(d,m,i,v));
+    }else{
+      vals.forEach((v,i)=>saveCustomMeal(d,activeMonth,i,v));
+    }
+    backdrop.remove();
+    render();
+  };
 }
 
 function updateStats(){
@@ -864,12 +923,53 @@ function clearAll(){
   }
 }
 
-function populateDayFilter(){
-  const sel=document.getElementById("dayFilter");
-  const dayCount=daysInActiveMonth();
-  const current=sel.value;
-  sel.innerHTML=`<option value="all">सभी दिन</option>`+Array.from({length:dayCount},(_,i)=>`<option value="${i+1}">दिन ${i+1}</option>`).join("");
-  sel.value=(current!=="all"&&Number(current)<=dayCount)?current:"all";
+// ---------- Backup (export) / Restore (import) — works fully offline, no login needed ----------
+function exportBackup(){
+  const data={app:"diet-30-day-tracker",exportedAt:new Date().toISOString(),ticks:{},customMeals};
+  for(let m=0;m<12;m++)for(let d=1;d<=31;d++)for(let i=0;i<3;i++){
+    const v=localStorage.getItem(key(d,m,i));
+    if(v!==null) data.ticks[key(d,m,i)]=v;
+  }
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:"application/json"});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement("a");
+  const stamp=new Date().toISOString().slice(0,10);
+  a.href=url;
+  a.download=`diet-tracker-backup-${stamp}.json`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+function triggerRestoreFile(){
+  document.getElementById("restoreFileInput").click();
+}
+function handleRestoreFile(evt){
+  const file=evt.target.files[0];
+  if(!file)return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const data=JSON.parse(reader.result);
+      if(!data||typeof data!=="object"||typeof data.ticks!=="object") throw new Error("invalid backup file");
+      if(!confirm("Restore करने से अभी की सारी tracking (isi browser me, aur agar login hai to cloud me bhi) overwrite ho जाएगी। जारी रखें?")){
+        evt.target.value="";
+        return;
+      }
+      Object.entries(data.ticks).forEach(([k,v])=>localStorage.setItem(k,v==="1"?"1":"0"));
+      if(data.customMeals&&typeof data.customMeals==="object"){
+        customMeals=data.customMeals;
+        localStorage.setItem("diet_custom_meals",JSON.stringify(customMeals));
+      }
+      pushFullStateToCloud(); // if logged in, keep the cloud copy in sync with the restored data
+      render();
+      alert("✅ Backup restore हो गया।");
+    }catch(e){
+      alert("❌ ये file सही backup format में नहीं है — कोई valid backup .json चुनें।");
+    }
+    evt.target.value="";
+  };
+  reader.readAsText(file);
 }
 
 let hadSearchQuery=false;
@@ -882,12 +982,8 @@ document.getElementById("search").addEventListener("input",function(){
   hadSearchQuery=!!v;
 });
 document.getElementById("statusFilter").addEventListener("change",render);
-document.getElementById("dayFilter").addEventListener("change",function(){
-  if(this.value!=="all"&&viewMode==="today")setViewMode("all");else render();
-});
 
 renderMonths();
-populateDayFilter();
 render();
 initFirebase();
 
