@@ -92,6 +92,7 @@ main{padding-bottom:60px}
 .heat-cell.h2{background:var(--accent);color:#3A2A0A}
 .heat-cell.h3{background:var(--primary);color:#fff}
 .heat-cell.today-cell{outline:2px solid var(--pending-accent);outline-offset:1px}
+.heat-cell.selected-cell{outline:2px solid var(--primary);outline-offset:1px}
 
 /* ---------- mark-all ---------- */
 .mark-all-btn{flex:0 0 auto;border:0;background:var(--line);color:var(--primary-dark);border-radius:7px;width:26px;height:26px;font-size:12px;cursor:pointer}
@@ -193,6 +194,8 @@ button:active{transform:scale(.97)}
 
 .day-card.today{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset,var(--shadow)}
 .day-card.today .day-title small::after{content:" • आज";color:var(--pending-accent);font-weight:700}
+.day-card.selected{border-color:var(--primary);box-shadow:0 0 0 2px var(--primary) inset,0 0 0 5px rgba(31,111,92,.15),var(--shadow)}
+.day-card.selected.today{border-color:var(--primary);box-shadow:0 0 0 2px var(--primary) inset,0 0 0 5px rgba(226,166,59,.35),var(--shadow)}
 
 .meal-row.m0{border-left:4px solid var(--accent)}
 .meal-row.m1{border-left:4px solid var(--primary)}
@@ -251,12 +254,13 @@ button:active{transform:scale(.97)}
   </section>
 
   <section class="controls">
-    <div class="controls-row">
+    <div class="controls-row four-col">
       <select id="statusFilter">
         <option value="all">सभी Meals</option>
         <option value="pending">केवल Pending</option>
         <option value="done">केवल Completed</option>
       </select>
+      <select id="dayFilter"><option value="all">सभी दिन</option></select>
       <button onclick="clearAll()">Reset महीना</button>
       <button class="secondary" onclick="toggleGrocery()">🛒 दोहराई गई चीज़ें</button>
     </div>
@@ -326,33 +330,33 @@ const meals=[
 ["आलू पराठा + दही","मिक्स वेज सब्जी + रोटी","वाल की सब्जी + रोटी"],
 ["मेथी थेपला + दही","चना दाल + सलाद + रोटी","लौकी मुठिया + छाछ"],
 ["पोहा + मूंगफली","ग्वार फली / वाल / फलीदार सब्जी + बाजरा रोटला","मूंग खिचड़ी + कढ़ी"],
-["रवा उपमा + दही","सहजन-आलू / वाल पापड़ी सब्जी + रोटी","कद्दू की सब्जी / लाल कोला + रोटी"],
+["रवा उपमा + दही","सहजन-आलू / वाल पापड़ी सब्जी + रोटी","कद्दू की सब्जी / लाल कोला + मकई रोटी"],
 ["स्प्राउट्स + दही","स्प्राउट्स सलाद / सब्जी + रोटी","तुरई की सब्जी / गिल्की + रोटी"],
 ["अपम + चटनी","शिमला मिर्च / भरवा मिर्च + रोटी","तुअर दाल + रोटी + सलाद"],
 ["वेज पराठा + दही","काला चना + सलाद + रोटी","कढ़ी + जाड़ी रोटी"],
-["मूंग चिल्ला + दही","पत्तागोभी / फूलगोभी + रोटी","मसाला चावल + रायता"],
-["आलू-प्याज पोहा","सफेद मटर की सब्जी / कल्थी + रोटी","साबुत उड़द + रोटी"],
-["बेसन चिल्ला + दही","पालक / हरा प्याज + रोटी","चवली (लोबिया) + रोटी"],
-["मूंग दाल डोसा + चटनी","गार्लिक-गाजर / मौसमी जड़ वाली सब्जी + रोटी","कढ़ी + बाटी + सलाद"],
+["मूंग चिल्ला + दही","भिंडी मसाला / फूलगोभी + रोटी","मसाला चावल + रायता"],
+["आलू-प्याज पोहा","करेला / कंटोला / कोई भी कड़वी सब्जी  + रोटी","साबुत उड़द / कल्थी + रोटी"],
+["बेसन चिल्ला + दही","पालक / हरा प्याज + रोटी","चवली (लोबिया) + मकई रोटी"],
+["मूंग दाल डोसा + चटनी","लौकी / गार्लिक-गाजर / मौसमी जड़ वाली सब्जी + रोटी","कढ़ी + बाटी + सलाद"],
 ["सूजी का वेज चीला","परवल / टिंडोरी + रोटी","मूंग दाल + रोटी"],
 ["इडली + सांभर","छोले + रोटी + सलाद","ककड़ी की सब्जी / खीरा रायता + रोटी"],
-["पास्ता / वेज सैंडविच","अरबी / मूली की सब्जी + रोटी","दलिया खिचड़ी + छाछ"],
+["पास्ता / वेज सैंडविच","भिंडी मसाला / अरबी / मूली की सब्जी + रोटी","दलिया खिचड़ी + छाछ"],
 ["अपम + चटनी","प्याज की सब्जी + बाजरा रोटला","मूंग दाल तड़का + रोटी"],
 ["स्प्राउट्स + दही","स्प्राउट्स सलाद / सब्जी + रोटी","पुलाव + रायता"],
-["वेज पोहा + दही","हरी मटर / स्वीट कॉर्न सब्जी + रोटी","मसूर दाल + मटकी + रोटी"],
-["साबुदाना + दही","आलू-मेथी / कोई भी भाजी + रोटी","पानीपूरी / हल्का नाश्ता"],
+["वेज पोहा + दही","हरी मटर / स्वीट कॉर्न सब्जी + रोटी","मसूर दाल + मटकी + मकई रोटी"],
+["साबुदाना + दही","लौकी / आलू-मेथी / कोई भी भाजी + रोटी","पानीपूरी / हल्का नाश्ता"],
 ["ब्रेड पोहा / उपमा","करेला / कंटोला / कोई भी कड़वी सब्जी + रोटी","चौलाई की सब्जी / हरी भाजी + रोटी"],
 ["खमन + छाछ","सूखी मेथी दाना की सब्जी + रोटी","मूंग खिचड़ी + कढ़ी"],
 ["मूंग चिल्ला + दही","कच्ची हल्दी / बेसन सब्जी + रोटी","दाल-बाटी + सलाद"],
-["भुट्टा चाट / कॉर्न चाट","परवल की सब्जी + रोटी","बेसन गट्टे की सब्जी + रोटी"],
+["भुट्टा चाट / कॉर्न चाट","भिंडी मसाला / परवल की सब्जी + रोटी","बेसन गट्टे की सब्जी + रोटी"],
 ["मेथी थेपला + दही","सेव टमाटर + बाजरा रोटला","टिंडा / टिंडोरी + रोटी"],
-["रवा उपमा + दही","बैंगन की सूखी सब्जी / भर्ता + रोटी","उड़द दाल + रोटी + सलाद"],
-["अपम + चटनी","फूलगोभी / पत्तागोभी + रोटी","लौकी-चना दाल + रोटी"],
+["रवा उपमा + दही","बैंगन की सूखी सब्जी / भर्ता + रोटी","उड़द दाल + मकई रोटी + सलाद"],
+["अपम + चटनी","टिंडोरी / फूलगोभी / पत्तागोभी + रोटी","लौकी-चना दाल + रोटी"],
 ["स्प्राउट्स + दही","स्प्राउट्स सलाद / सब्जी + रोटी","मसाला चावल + रायता"],
 ["इडली + सांभर","शिमला मिर्च / हरी मिर्च फ्राई + रोटी","दाल-ढोकली"],
 ["मूंग दाल ढोकला","राजमा + रोटी + सलाद","तुअर दाल + रोटी"],
 ["उत्तपम + सांभर","पत्तागोभी / ब्रोकोली + रोटी","दलिया खिचड़ी + छाछ"],
-["भिंडी मसाला + रोटी","भिंडी मसाला / मौसमी हरी सब्जी + रोटी","साबुत मूंग + रोटी"]
+["भिंडी मसाला + रोटी","भिंडी मसाला / मौसमी हरी सब्जी + रोटी","साबुत मूंग +  बाजरा रोटला"]
 ];
 
 // Hinglish (roman) -> Devanagari keyword map, so typing "dal" finds दाल items etc.
@@ -378,7 +382,7 @@ const translit=[
  {rom:["chole","chhole"],dev:"छोले"},{rom:["kakdi","cucumber"],dev:"ककड़ी"},{rom:["kheera"],dev:"खीरा"},
  {rom:["pasta"],dev:"पास्ता"},{rom:["sandwich"],dev:"सैंडविच"},{rom:["arbi"],dev:"अरबी"},{rom:["mooli","radish"],dev:"मूली"},
  {rom:["daliya","oats"],dev:"दलिया"},{rom:["sabudana"],dev:"साबुदाना"},{rom:["bhaji"],dev:"भाजी"},{rom:["nashta","snacks"],dev:"नाश्ता"},
- {rom:["bread"],dev:"ब्रेड"},{rom:["karela","bittergourd"],dev:"करेला"},{rom:["kantola"],dev:"कंटोला"},
+ {rom:["bread"],dev:"ब्रेड"},{rom:["karela","bittergourd"],dev:"करेला"},{rom:["kantola"],dev:"कंटोला"},{rom:["makka","makai"],dev:"मकई "},
  {rom:["chaulai"],dev:"चौलाई"},{rom:["khaman"],dev:"खमन"},{rom:["haldi","turmeric"],dev:"हल्दी"},{rom:["gatte"],dev:"गट्टे"},
  {rom:["bhutta","corn"],dev:"भुट्टा"},{rom:["chaat"],dev:"चाट"},{rom:["tamatar","tomato"],dev:"टमाटर"},{rom:["tinda"],dev:"टिंडा"},
  {rom:["baingan","brinjal","eggplant"],dev:"बैंगन"},{rom:["bharta"],dev:"भर्ता"},{rom:["rajma"],dev:"राजमा"},
@@ -677,29 +681,34 @@ function renderPrepBanner(){
   el.innerHTML=`<div class="prep-banner"><b>🛒 कल (दिन ${tmw}, ${wd}) की तैयारी</b>${row.join(" • ")}</div>`;
 }
 
+function groceryPanelHTML(){
+  const freq={};
+  const dayCount=daysInActiveMonth();
+  for(let d=1;d<=dayCount;d++){
+    rowTexts(d,activeMonth).forEach(text=>{freq[text]=(freq[text]||0)+1;});
+  }
+  const repeats=Object.entries(freq).filter(([,c])=>c>1).sort((a,b)=>b[1]-a[1]);
+  return repeats.length
+    ?`<b style="display:block;margin-bottom:4px">🛒 ${months[activeMonth]} में दोहराई गई चीज़ें (advance तैयारी के लिए)</b>`+repeats.map(([t,c])=>`${t} — ${c}x`).join(" • ")
+    :`<b style="display:block;margin-bottom:4px">🛒 दोहराई गई चीज़ें</b>${months[activeMonth]} में कोई item दोहराया नहीं गया।`;
+}
 function toggleGrocery(){
   const el=document.getElementById("groceryPanel");
   const wasHidden=el.classList.contains("hidden");
-  if(wasHidden){
-    const freq={};
-    meals.forEach(row=>row.forEach(text=>{freq[text]=(freq[text]||0)+1;}));
-    day31.forEach(text=>{freq[text]=(freq[text]||0)+1;}); // include the day-31 menu too
-    const repeats=Object.entries(freq).filter(([,c])=>c>1).sort((a,b)=>b[1]-a[1]);
-    el.innerHTML=repeats.length
-      ?`<b style="display:block;margin-bottom:4px">🛒 इस चक्र में दोहराई गई चीज़ें (advance तैयारी के लिए)</b>`+repeats.map(([t,c])=>`${t} — ${c}x`).join(" • ")
-      :`<b style="display:block;margin-bottom:4px">🛒 दोहराई गई चीज़ें</b>कोई item दोहराया नहीं गया।`;
-  }
+  if(wasHidden) el.innerHTML=groceryPanelHTML();
   el.classList.toggle("hidden",!wasHidden);
 }
 
 function renderHeatmap(){
   const el=document.getElementById("heatmap");
   const total=daysInActiveMonth();
+  const selVal=document.getElementById("dayFilter")?document.getElementById("dayFilter").value:"all";
   let html="";
   for(let d=1;d<=total;d++){
     const c=rowFor(d).filter((_,i)=>get(d,activeMonth,i)).length;
     const isToday=activeMonth===todayMonthIdx&&d===todayDate;
-    html+=`<button type="button" class="heat-cell h${c} ${isToday?'today-cell':''}" title="दिन ${d} — ${weekdaysHi[weekdayFor(d)]} — ${c}/3" onclick="jumpToDay(${d})">${d}</button>`;
+    const isSelected=selVal!=="all"&&selVal===String(d);
+    html+=`<button type="button" class="heat-cell h${c} ${isToday?'today-cell':''} ${isSelected?'selected-cell':''}" title="दिन ${d} — ${weekdaysHi[weekdayFor(d)]} — ${c}/3" onclick="jumpToDay(${d})">${d}</button>`;
   }
   el.innerHTML=html;
 }
@@ -708,6 +717,8 @@ function jumpToDay(d){
   viewMode="all";
   document.querySelectorAll(".vt-btn").forEach(b=>b.classList.toggle("active",b.dataset.mode==="all"));
   openState[d]=true;
+  const df=document.getElementById("dayFilter");
+  if(df&&[...df.options].some(o=>o.value===String(d))) df.value=String(d); // also highlight it via the day dropdown
   render();
   requestAnimationFrame(()=>{
     document.querySelector(`.day-card[data-day="${d}"]`)?.scrollIntoView({block:"center",behavior:"smooth"});
@@ -735,6 +746,7 @@ function renderMonths(){
 function setActiveMonth(i){
   activeMonth=i;
   renderMonths();
+  populateDayFilter();
   render();
 }
 
@@ -781,7 +793,7 @@ function toggleAll(){
 function render(){
   const q=document.getElementById("search").value.trim().toLowerCase();
   const sf=document.getElementById("statusFilter").value;
-  const df="all"; // dedicated day dropdown removed from UI — use search or the month overview (heatmap) to jump to a specific day
+  const df=document.getElementById("dayFilter").value;
   const dayCount=daysInActiveMonth();
   let html="",visible=0;
 
@@ -806,7 +818,8 @@ function render(){
     const isBonus=false;
 
     const isToday=(activeMonth===todayMonthIdx&&d===todayDate);
-    html+=`<article class="day-card ${done?'done':''} ${isOpen?'open':''} ${isToday?'today':''}" data-day="${d}">
+    const isSelected=(df!=="all"&&df===String(d));
+    html+=`<article class="day-card ${done?'done':''} ${isOpen?'open':''} ${isToday?'today':''} ${isSelected?'selected':''}" data-day="${d}">
       <div class="day-head" role="button" tabindex="0" onclick="toggleCard(this.parentElement)" onkeydown="if(event.key==='Enter')toggleCard(this.parentElement)">
         <span class="day-badge" style="--pct:${pct}"><span>${d}</span></span>
         <span class="day-title">दिन ${d} <span class="wd-badge">${weekdaysHi[wd]}</span>${isBonus?' <small style="display:inline">(दिन 1 दोहराया)</small>':''}<small>${completed}/3 पूरा</small></span>
@@ -831,6 +844,8 @@ function render(){
   updateStats();
   renderPrepBanner();
   renderHeatmap();
+  const groceryEl=document.getElementById("groceryPanel");
+  if(groceryEl&&!groceryEl.classList.contains("hidden")) groceryEl.innerHTML=groceryPanelHTML();
 
   const isTable=viewMode==="table";
   document.querySelector(".heatmap-wrap").classList.toggle("hidden",isTable);
@@ -972,6 +987,14 @@ function handleRestoreFile(evt){
   reader.readAsText(file);
 }
 
+function populateDayFilter(){
+  const sel=document.getElementById("dayFilter");
+  const dayCount=daysInActiveMonth();
+  const current=sel.value;
+  sel.innerHTML=`<option value="all">सभी दिन</option>`+Array.from({length:dayCount},(_,i)=>`<option value="${i+1}">दिन ${i+1}</option>`).join("");
+  sel.value=(current!=="all"&&Number(current)<=dayCount)?current:"all";
+}
+
 let hadSearchQuery=false;
 document.getElementById("search").addEventListener("input",function(){
   const v=this.value.trim();
@@ -982,8 +1005,20 @@ document.getElementById("search").addEventListener("input",function(){
   hadSearchQuery=!!v;
 });
 document.getElementById("statusFilter").addEventListener("change",render);
+document.getElementById("dayFilter").addEventListener("change",function(){
+  const chosen=this.value;
+  if(chosen!=="all"&&viewMode==="today")setViewMode("all");else render();
+  if(chosen!=="all"){
+    openState[chosen]=true;
+    render();
+    requestAnimationFrame(()=>{
+      document.querySelector(`.day-card[data-day="${chosen}"]`)?.scrollIntoView({block:"center",behavior:"smooth"});
+    });
+  }
+});
 
 renderMonths();
+populateDayFilter();
 render();
 initFirebase();
 
