@@ -194,6 +194,8 @@ button:active{transform:scale(.97)}
 
 .day-card.today{border-color:var(--accent);box-shadow:0 0 0 2px var(--accent) inset,var(--shadow)}
 .day-card.today .day-title small::after{content:" • आज";color:var(--pending-accent);font-weight:700}
+.day-card.rel-1 .day-title small::after{content:" • कल";color:var(--primary);font-weight:700}
+.day-card.rel-2 .day-title small::after{content:" • परसों";color:var(--primary);font-weight:700}
 .day-card.selected{border-color:var(--primary);box-shadow:0 0 0 2px var(--primary) inset,0 0 0 5px rgba(31,111,92,.15),var(--shadow)}
 .day-card.selected.today{border-color:var(--primary);box-shadow:0 0 0 2px var(--primary) inset,0 0 0 5px rgba(226,166,59,.35),var(--shadow)}
 
@@ -203,6 +205,12 @@ button:active{transform:scale(.97)}
 
 .theme-toggle{background:rgba(255,255,255,.18);color:#fff;border:1px solid rgba(255,255,255,.35)}
 
+.log-card{background:var(--card);border:1px solid var(--line);border-radius:13px;padding:9px 11px;margin-bottom:10px;box-shadow:var(--shadow);font-size:12.5px}
+.glasses{display:flex;gap:2px;margin:4px 0 6px;font-size:17px}
+.glasses span{filter:grayscale(1);opacity:.3}.glasses span.on{filter:none;opacity:1}
+.log-row{display:flex;gap:6px;align-items:center}
+.log-row input{width:0;flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--bg);color:var(--ink);font-size:12px}
+.sync-modal input[type=time]{width:auto}
 @media(min-width:640px){
   .day-list{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   .stats{grid-template-columns:repeat(6,1fr)}
@@ -270,6 +278,12 @@ button:active{transform:scale(.97)}
       <button class="secondary" onclick="exportBackup()">💾 Backup लें</button>
       <button class="secondary" onclick="triggerRestoreFile()">📥 Restore करें</button>
     </div>
+    <div class="controls-row four-col">
+      <button class="secondary" onclick="openGrocery()">🛒 सामान सूची</button>
+      <button class="secondary" onclick="openWeekly()">📈 Weekly</button>
+      <button class="secondary" onclick="openReminder()">🔔 Reminder</button>
+      <select id="profileSel"></select>
+    </div>
     <input type="file" id="restoreFileInput" accept="application/json,.json" class="hidden" onchange="handleRestoreFile(event)">
   </section>
 
@@ -286,6 +300,7 @@ button:active{transform:scale(.97)}
     <div class="heatmap" id="heatmap"></div>
   </section>
 
+  <div id="logCard"></div>
   <div class="day-list" id="dayList"></div>
 
   <section id="tableView" class="hidden">
@@ -397,29 +412,55 @@ let viewMode="today"; // "today" = show today ±1 day, "all" = full month
 // meals for the missing slot never happens — Feb just stops at 29.
 const monthDays={Sep:30,Oct:31,Nov:30,Dec:31,Jan:31,Feb:29,Mar:31,Apr:30,May:31,Jun:30,Jul:31,Aug:31};
 const day31=["स्प्राउट्स + दही","स्प्राउट्स सलाद / सब्जी + रोटी (Same)","दाल-बाटी  + सलाद"];
-function daysInActiveMonth(){return monthDays[months[activeMonth]];}
+function daysInActiveMonth(){
+  if(months[activeMonth]==="Feb") return new Date(yearForMonthIdx(activeMonth),2,0).getDate();
+  return monthDays[months[activeMonth]];
+}
 function rowFor(d){return d===31?day31:meals[(d-1)%30];}
 const openState={}; // dayIndex -> bool, per session
 for(let d=1;d<=31;d++)openState[d]=true; // start expanded so meal names are visible
 
 // figure out "today" so its card can be highlighted
-const today=new Date();
+let today=new Date();
 const jsMonthNames=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
-const todayMonthIdx=months.indexOf(jsMonthNames[today.getMonth()]);
-const todayDate=today.getDate();
+let todayMonthIdx=months.indexOf(jsMonthNames[today.getMonth()]);
+let todayDate=today.getDate();
 if(todayMonthIdx>-1) activeMonth=todayMonthIdx;
 
 // map our Sep->Aug month order to real JS month numbers + figure out which
 // calendar year each column belongs to, so real weekday names can be shown.
 const monthJSNum=[8,9,10,11,0,1,2,3,4,5,6,7]; // Sep..Aug -> JS getMonth() values
-const baseYear=today.getMonth()>=8?today.getFullYear():today.getFullYear()-1; // year of "Sep" in the current cycle
+let baseYear=today.getMonth()>=8?today.getFullYear():today.getFullYear()-1; // year of "Sep" in the current cycle
 function yearForMonthIdx(i){return i<=3?baseYear:baseYear+1;}
 function weekdayFor(d){return new Date(yearForMonthIdx(activeMonth),monthJSNum[activeMonth],d).getDay();}
+function refreshToday(){
+  today=new Date();
+  todayMonthIdx=months.indexOf(jsMonthNames[today.getMonth()]);
+  todayDate=today.getDate();
+  baseYear=today.getMonth()>=8?today.getFullYear():today.getFullYear()-1;
+}
+// aaj, kal, parson — agla mahina shuru ho jaye to bhi sahi din milte hain (e.g. 30 Sep -> 1, 2 Oct)
+function windowDays(){
+  const out=[];
+  for(let off=0;off<3;off++){
+    const dt=new Date(today.getFullYear(),today.getMonth(),today.getDate()+off);
+    out.push({d:dt.getDate(),m:months.indexOf(jsMonthNames[dt.getMonth()]),wd:dt.getDay(),off});
+  }
+  return out;
+}
 const weekdaysHi=["रविवार","सोमवार","मंगलवार","बुधवार","गुरुवार","शुक्रवार","शनिवार"];
 const weekdaysHiShort=["रवि","सोम","मंगल","बुध","गुरु","शुक्र","शनि"];
 const weekdaysEn=["sunday","monday","tuesday","wednesday","thursday","friday","saturday"];
 
-const key=(d,m,i)=>`diet_${d}_${m}_${i}`;
+const START_YEAR=2026; // pehla cycle purani keys use karta hai (purana data safe); Sep 2027 se naya cycle apne aap
+const MAINCM="diet_custom_meals";
+let profiles=[];try{profiles=JSON.parse(localStorage.getItem("diet_profiles")||"[]");}catch(e){}
+if(!profiles.length)profiles=[{id:"main",name:"मैं"}];
+let profile=localStorage.getItem("diet_profile")||"main";
+if(!profiles.some(p=>p.id===profile))profile="main";
+function pfx(){return profile==="main"?"":profile+"_";}
+function cmKey(){return profile==="main"?MAINCM:MAINCM+"_"+profile;}
+const key=(d,m,i)=>`diet_${pfx()}${baseYear>START_YEAR?"y"+baseYear+"_":""}${d}_${m}_${i}`;
 function get(d,m,i){return localStorage.getItem(key(d,m,i))==="1"}
 function set(d,m,i,v){
   localStorage.setItem(key(d,m,i),v?"1":"0");
@@ -428,7 +469,7 @@ function set(d,m,i,v){
 
 // ---------- editable meal text (overrides on top of the default plan) ----------
 let customMeals={};
-try{ customMeals=JSON.parse(localStorage.getItem("diet_custom_meals")||"{}"); }catch(e){ customMeals={}; }
+try{ customMeals=JSON.parse(localStorage.getItem(cmKey())||"{}"); }catch(e){ customMeals={}; }
 const mealKey=(d,m,i)=>`${d}_${m}_${i}`;
 function rowTexts(d,m){
   return rowFor(d).map((t,i)=>{
@@ -442,7 +483,7 @@ function saveCustomMeal(d,m,i,text){
   const defaultText=rowFor(d)[i];
   if(!text||text===defaultText){ delete customMeals[k]; }
   else{ customMeals[k]=text; }
-  localStorage.setItem("diet_custom_meals",JSON.stringify(customMeals));
+  localStorage.setItem(cmKey(),JSON.stringify(customMeals));
   pushCustomMealToCloud(k,Object.prototype.hasOwnProperty.call(customMeals,k)?customMeals[k]:null);
   render();
 }
@@ -464,7 +505,7 @@ function resetCustomMealsForMonth(){
       pushCustomMealToCloud(k,null);
     }
   }
-  localStorage.setItem("diet_custom_meals",JSON.stringify(customMeals));
+  localStorage.setItem(cmKey(),JSON.stringify(customMeals));
   render();
 }
 
@@ -506,9 +547,9 @@ function initFirebase(){
   });
 }
 function clearAllLocalData(){
-  for(let m=0;m<12;m++)for(let d=1;d<=31;d++)for(let i=0;i<3;i++) localStorage.removeItem(key(d,m,i));
-  customMeals={};
-  localStorage.setItem("diet_custom_meals","{}");
+  Object.keys(localStorage).filter(k=>/^diet_(?:y\d+_)?\d+_\d+_\d+$/.test(k)).forEach(k=>localStorage.removeItem(k));
+  if(profile==="main") customMeals={};
+  localStorage.setItem(MAINCM,"{}");
 }
 function connectUserSync(uid){
   if(!db)return;
@@ -519,7 +560,7 @@ function connectUserSync(uid){
     if(snap.exists){
       const data=snap.data();
       if(data.ticks) Object.entries(data.ticks).forEach(([k,v])=>localStorage.setItem(k,v?"1":"0"));
-      if(data.customMeals){ customMeals=data.customMeals; localStorage.setItem("diet_custom_meals",JSON.stringify(customMeals)); }
+      if(data.customMeals&&profile==="main"){ customMeals=data.customMeals; localStorage.setItem(MAINCM,JSON.stringify(customMeals)); }
     }else{
       pushFullStateToCloud();
     }
@@ -528,7 +569,7 @@ function connectUserSync(uid){
   },err=>console.warn("sync error",err));
 }
 function pushFullStateToCloud(){
-  if(!syncDocRef||applyingRemote)return;
+  if(!syncDocRef||applyingRemote||profile!=="main")return;
   const ticks={};
   for(let m=0;m<12;m++)for(let d=1;d<=31;d++)for(let i=0;i<3;i++){
     const v=localStorage.getItem(key(d,m,i));
@@ -537,12 +578,12 @@ function pushFullStateToCloud(){
   syncDocRef.set({ticks,customMeals,updatedAt:Date.now()},{merge:true}).catch(()=>{});
 }
 function pushTickToCloud(d,m,i,v){
-  if(!syncDocRef||applyingRemote)return;
+  if(!syncDocRef||applyingRemote||profile!=="main")return;
   const f={};f[key(d,m,i)]=v;
   syncDocRef.set({ticks:f,updatedAt:Date.now()},{merge:true}).catch(()=>{});
 }
 function pushCustomMealToCloud(k,val){
-  if(!syncDocRef||applyingRemote)return;
+  if(!syncDocRef||applyingRemote||profile!=="main")return;
   if(val===null){
     syncDocRef.update({[`customMeals.${k}`]:firebase.firestore.FieldValue.delete(),updatedAt:Date.now()}).catch(()=>{});
   }else{
@@ -672,13 +713,23 @@ function shareProgress(){
   }
 }
 
+function prepHints(row){
+  const t=row.join(" ");
+  const h=[];
+  if(/स्प्राउट्स|राजमा|काला चना|छोले|मटकी|कल्थी|चवली|साबुत उड़द|साबुत मूंग|मूंग चिल्ला|मूंग दाल (डोसा|ढोकला)/.test(t)) h.push("🫘 दाल/चना/स्प्राउट्स आज रात भिगोएं");
+  if(/इडली|डोसा|अपम|उत्तपम|ढोकला|खमन|चिल्ला/.test(t)) h.push("🥣 बैटर आज रात तैयार करें");
+  if(/बाटी|थेपला|पराठा/.test(t)) h.push("🫓 आटा गूंथ कर रखें");
+  if(/दही|रायता|कढ़ी/.test(t)) h.push("🥛 दही जमा दें");
+  return h;
+}
 function renderPrepBanner(){
   const el=document.getElementById("prepBanner");
-  if(activeMonth!==todayMonthIdx||todayDate>=daysInActiveMonth()){el.innerHTML="";return;}
-  const tmw=todayDate+1;
-  const row=rowFor(tmw);
-  const wd=weekdaysHi[weekdayFor(tmw)];
-  el.innerHTML=`<div class="prep-banner"><b>🛒 कल (दिन ${tmw}, ${wd}) की तैयारी</b>${row.join(" • ")}</div>`;
+  const dt=new Date(today.getFullYear(),today.getMonth(),today.getDate()+1);
+  const m=months.indexOf(jsMonthNames[dt.getMonth()]);
+  const d=dt.getDate();
+  const row=rowTexts(d,m);
+  const hints=prepHints(row);
+  el.innerHTML=`<div class="prep-banner"><b>🛒 कल (${d} ${months[m]}, ${weekdaysHi[dt.getDay()]}) की तैयारी</b>${row.map((t,i)=>mealMeta[i].icon+" "+t).join("<br>")}${hints.length?`<div style="margin-top:5px;font-weight:700">${hints.join(" • ")}</div>`:""}</div>`;
 }
 
 function groceryPanelHTML(){
@@ -757,12 +808,12 @@ function toggleMeal(d,m,i,val){
   set(d,m,i,val);
   render();
 }
-function markAllDay(e,d){
+function markAllDay(e,d,m=activeMonth){
   e.stopPropagation();
-  const allDone=[0,1,2].every(i=>get(d,activeMonth,i));
+  const allDone=[0,1,2].every(i=>get(d,m,i));
   const newVal=!allDone;
-  lastAction={type:"bulk",items:[0,1,2].map(i=>({d,m:activeMonth,i,prev:get(d,activeMonth,i)}))};
-  [0,1,2].forEach(i=>set(d,activeMonth,i,newVal));
+  lastAction={type:"bulk",items:[0,1,2].map(i=>({d,m,i,prev:get(d,m,i)}))};
+  [0,1,2].forEach(i=>set(d,m,i,newVal));
   render();
 }
 function undoLast(){
@@ -797,43 +848,48 @@ function render(){
   const dayCount=daysInActiveMonth();
   let html="",visible=0;
 
-  for(let d=1;d<=dayCount;d++){
-    const row=rowTexts(d,activeMonth);
-    const wd=weekdayFor(d);
+  const showWindow=viewMode==="today"&&activeMonth===todayMonthIdx;
+  let entries=[];
+  if(showWindow) entries=windowDays();
+  else for(let d=1;d<=dayCount;d++) entries.push({d,m:activeMonth,wd:weekdayFor(d),off:null});
+
+  for(const e of entries){
+    const d=e.d,m=e.m;
+    const row=rowTexts(d,m);
+    const wd=e.wd;
     const combined=(d+" "+row.join(" ")+" "+weekdaysHi[wd]+" "+weekdaysHiShort[wd]+" "+weekdaysEn[wd]).toLowerCase();
     let matchText=!q||combined.includes(q);
     if(!matchText&&q&&q.length>=3){
       matchText=translit.some(t=>t.rom.some(r=>r.includes(q)||q.includes(r))&&row.some(text=>text.includes(t.dev)));
     }
-    const dayMatch=df==="all"||df===String(d);
-    const inTodayWindow=activeMonth===todayMonthIdx&&d>=Math.max(1,todayDate-1)&&d<=Math.min(dayCount,todayDate+1);
-    const rangeMatch=viewMode==="all"||activeMonth!==todayMonthIdx||inTodayWindow;
-    const completed=row.filter((_,i)=>get(d,activeMonth,i)).length;
+    const dayMatch=showWindow||df==="all"||df===String(d);
+    const completed=row.filter((_,i)=>get(d,m,i)).length;
     const done=completed===3;
     const statusMatch=sf==="all"||(sf==="done"&&done)||(sf==="pending"&&!done);
-    if(!matchText||!dayMatch||!statusMatch||!rangeMatch)continue;
+    if(!matchText||!dayMatch||!statusMatch)continue;
     visible++;
     const isOpen=openState[d]||false;
     const pct=Math.round(completed/3*100);
     const isBonus=false;
 
-    const isToday=(activeMonth===todayMonthIdx&&d===todayDate);
+    const isToday=e.off!==null?e.off===0:(activeMonth===todayMonthIdx&&d===todayDate);
     const isSelected=(df!=="all"&&df===String(d));
-    html+=`<article class="day-card ${done?'done':''} ${isOpen?'open':''} ${isToday?'today':''} ${isSelected?'selected':''}" data-day="${d}">
+    html+=`<article class="day-card ${done?'done':''} ${isOpen?'open':''} ${isToday?'today':''} ${e.off>0?'rel-'+e.off:''} ${isSelected?'selected':''}" data-day="${d}">
       <div class="day-head" role="button" tabindex="0" onclick="toggleCard(this.parentElement)" onkeydown="if(event.key==='Enter')toggleCard(this.parentElement)">
         <span class="day-badge" style="--pct:${pct}"><span>${d}</span></span>
-        <span class="day-title">दिन ${d} <span class="wd-badge">${weekdaysHi[wd]}</span>${isBonus?' <small style="display:inline">(दिन 1 दोहराया)</small>':''}<small>${completed}/3 पूरा</small></span>
+        <span class="day-title">दिन ${d} <span class="wd-badge">${weekdaysHi[wd]}</span>${showWindow?` <span class="wd-badge">${months[m]}</span>`:''}${isBonus?' <small style="display:inline">(दिन 1 दोहराया)</small>':''}<small>${completed}/3 पूरा</small></span>
         <span class="chev">▾</span>
-        <button type="button" class="mark-all-btn" onclick="markAllDay(event,${d})" title="सभी meals एक साथ tick/untick करें">${done?'↺':'✔️'}</button>
+        <button type="button" class="mark-all-btn" onclick="markAllDay(event,${d},${m})" title="सभी meals एक साथ tick/untick करें">${done?'↺':'✔️'}</button>
       </div>
       <div class="day-body">
         ${row.map((text,i)=>{
-          const checked=get(d,activeMonth,i);
+          const checked=get(d,m,i);
           return `<label class="meal-row m${i} ${checked?'checked':''}">
-            <input type="checkbox" ${checked?"checked":""} onchange="toggleMeal(${d},${activeMonth},${i},this.checked)">
+            <input type="checkbox" ${checked?"checked":""} onchange="toggleMeal(${d},${m},${i},this.checked)">
             <span class="meal-icon">${mealMeta[i].icon}</span>
             <span class="meal-text">${text}<small>${mealMeta[i].label}</small></span>
-            <button type="button" class="edit-meal-btn" onclick="event.preventDefault();event.stopPropagation();editMealPrompt(${d},${activeMonth},${i})" title="Meal edit करें">✏️</button>
+            <button type="button" class="edit-meal-btn" onclick="event.preventDefault();event.stopPropagation();editMealPrompt(${d},${m},${i})" title="Meal edit करें">✏️</button>
+            <button type="button" class="edit-meal-btn" onclick="event.preventDefault();event.stopPropagation();swapMeal(${d},${m},${i})" title="दूसरा विकल्प">🔀</button>
           </label>`;
         }).join("")}
       </div>
@@ -843,6 +899,7 @@ function render(){
   document.getElementById("dayList").innerHTML=visible?html:`<div class="empty">कोई matching record नहीं मिला।</div>`;
   updateStats();
   renderPrepBanner();
+  renderLog();
   renderHeatmap();
   const groceryEl=document.getElementById("groceryPanel");
   if(groceryEl&&!groceryEl.classList.contains("hidden")) groceryEl.innerHTML=groceryPanelHTML();
@@ -940,7 +997,7 @@ function clearAll(){
 
 // ---------- Backup (export) / Restore (import) — works fully offline, no login needed ----------
 function exportBackup(){
-  const data={app:"diet-30-day-tracker",exportedAt:new Date().toISOString(),ticks:{},customMeals};
+  const data={app:"diet-30-day-tracker",exportedAt:new Date().toISOString(),ticks:{},customMeals,logs:Object.fromEntries(Object.keys(localStorage).filter(k=>k.startsWith("diet_log_")).map(k=>[k,localStorage.getItem(k)]))};
   for(let m=0;m<12;m++)for(let d=1;d<=31;d++)for(let i=0;i<3;i++){
     const v=localStorage.getItem(key(d,m,i));
     if(v!==null) data.ticks[key(d,m,i)]=v;
@@ -972,9 +1029,10 @@ function handleRestoreFile(evt){
         return;
       }
       Object.entries(data.ticks).forEach(([k,v])=>localStorage.setItem(k,v==="1"?"1":"0"));
+      if(data.logs)Object.entries(data.logs).forEach(([k,v])=>localStorage.setItem(k,v));
       if(data.customMeals&&typeof data.customMeals==="object"){
         customMeals=data.customMeals;
-        localStorage.setItem("diet_custom_meals",JSON.stringify(customMeals));
+        localStorage.setItem(cmKey(),JSON.stringify(customMeals));
       }
       pushFullStateToCloud(); // if logged in, keep the cloud copy in sync with the restored data
       render();
@@ -1019,6 +1077,7 @@ document.getElementById("dayFilter").addEventListener("change",function(){
 
 renderMonths();
 populateDayFilter();
+renderProfiles();
 render();
 initFirebase();
 
@@ -1039,6 +1098,153 @@ syncHeaderPad();
 window.addEventListener("resize",syncHeaderPad);
 window.addEventListener("load",syncHeaderPad);
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(syncHeaderPad);
+
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState!=="visible")return;
+  const prev=todayMonthIdx+"_"+todayDate;
+  refreshToday();
+  if(prev!==todayMonthIdx+"_"+todayDate){
+    activeMonth=todayMonthIdx;
+    renderMonths();populateDayFilter();render();
+  }
+});
+
+// ================= EXTRAS: modal, saamaan list, weekly, reminder, water/kcal, swap, members =================
+function showModal(title,body,btns){
+  document.querySelectorAll(".sync-modal-backdrop").forEach(e=>e.remove());
+  const bd=document.createElement("div");bd.className="sync-modal-backdrop";
+  bd.onclick=e=>{if(e.target===bd)bd.remove();};
+  const md=document.createElement("div");md.className="sync-modal";md.style.maxHeight="85vh";md.style.overflowY="auto";
+  md.innerHTML=`<h3>${title}</h3>${body}<div class="row" id="modalBtns"></div>`;
+  const row=md.querySelector("#modalBtns");
+  btns.concat([{t:"बंद करें",f:()=>{},sec:1}]).forEach(b=>{
+    const x=document.createElement("button");x.type="button";x.textContent=b.t;if(b.sec)x.className="secondary";
+    x.onclick=()=>{Promise.resolve(b.f()).then(r=>{if(r!==false)bd.remove();});};
+    row.appendChild(x);
+  });
+  bd.appendChild(md);document.body.appendChild(bd);
+}
+function shareText(t){ if(navigator.share)navigator.share({text:t}).catch(()=>{}); else window.open("https://wa.me/?text="+encodeURIComponent(t),"_blank"); }
+function dateAt(off){return new Date(today.getFullYear(),today.getMonth(),today.getDate()+off);}
+function mIdx(dt){return months.indexOf(jsMonthNames[dt.getMonth()]);}
+
+// 1) agle 3/7 din ka saamaan
+function groceryList(n){
+  let texts="";
+  for(let k=1;k<=n;k++){const dt=dateAt(k);texts+=" "+rowTexts(dt.getDate(),mIdx(dt)).join(" ");}
+  const res=[];
+  translit.forEach(t=>{const c=texts.split(t.dev).length-1;if(c>0)res.push([t.dev.trim(),c]);});
+  return res.sort((a,b)=>b[1]-a[1]);
+}
+function openGrocery(n=7){
+  const list=groceryList(n);
+  const txt=`🛒 अगले ${n} दिन का सामान\n`+list.map(([a,c])=>`• ${a} (${c}x)`).join("\n");
+  showModal(`🛒 अगले ${n} दिन का सामान`,`<p>${list.map(([a,c])=>`${a} ×${c}`).join(" • ")||"कुछ नहीं मिला"}</p>`,
+    [{t:n===7?"3 दिन देखें":"7 दिन देखें",f:()=>{openGrocery(n===7?3:7);},sec:1},{t:"📤 Share",f:()=>{shareText(txt);return false;}}]);
+}
+
+// 2) weekly summary
+function openWeekly(){
+  let html="",tot=0,miss=[0,0,0],water=0,wdays=0;
+  for(let k=6;k>=0;k--){
+    const dt=dateAt(-k),d=dt.getDate(),m=mIdx(dt);
+    const st=[0,1,2].map(i=>get(d,m,i));
+    st.forEach((v,i)=>{if(v)tot++;else miss[i]++;});
+    const l=getLog(dt.getFullYear()+"-"+(dt.getMonth()+1)+"-"+d);if(l.w){water+=l.w;wdays++;}
+    html+=`<div>${d} ${months[m]} ${weekdaysHiShort[dt.getDay()]}: ${st.map(v=>v?"✅":"❌").join(" ")}</div>`;
+  }
+  const worst=miss.indexOf(Math.max(...miss));
+  showModal("📈 पिछले 7 दिन",`<p>${html}</p><p><b>${tot}/21 meals पूरे (${Math.round(tot/21*100)}%)</b><br>सबसे ज़्यादा छूटा: ${mealMeta[worst].icon} ${mealMeta[worst].label} (${miss[worst]} बार)${wdays?`<br>💧 औसत पानी: ${(water/wdays).toFixed(1)} गिलास/दिन`:""}</p>`,
+    [{t:"📤 Share",f:()=>{shareText(`📈 पिछले 7 दिन: ${tot}/21 meals पूरे (${Math.round(tot/21*100)}%)`);return false;}}]);
+}
+
+// 3) reminder (app/tab khula ho tabhi chalta hai)
+let remind={on:false,t:"20:00"};
+try{remind=Object.assign(remind,JSON.parse(localStorage.getItem("diet_remind")||"{}"));}catch(e){}
+function openReminder(){
+  showModal("🔔 कल की तैयारी Reminder",`<p>तय समय पर "कल की तैयारी" notification आएगी। ध्यान रहे: यह तभी चलेगा जब app/tab खुला या background में चालू हो — बंद app को browser जगा नहीं सकता।</p><input type="time" id="remT" value="${remind.t}"><p>अभी: <b>${remind.on?"चालू ("+remind.t+")":"बंद"}</b></p>`,
+    [{t:remind.on?"बंद करें":"चालू करें",f:async()=>{
+      remind.t=document.getElementById("remT").value||"20:00";
+      if(!remind.on){
+        if(!("Notification" in window)){alert("यह browser notifications support नहीं करता।");return false;}
+        const pm=await Notification.requestPermission();
+        if(pm!=="granted"){alert("Notification की permission दें।");return false;}
+      }
+      remind.on=!remind.on;localStorage.setItem("diet_remind",JSON.stringify(remind));
+    }}]);
+}
+function checkReminder(){
+  if(!remind.on||!("Notification" in window)||Notification.permission!=="granted")return;
+  const n=new Date(),hm=String(n.getHours()).padStart(2,"0")+":"+String(n.getMinutes()).padStart(2,"0"),stamp=n.toDateString();
+  if(hm<remind.t||localStorage.getItem("diet_remind_last")===stamp)return;
+  localStorage.setItem("diet_remind_last",stamp);
+  const dt=new Date(n.getFullYear(),n.getMonth(),n.getDate()+1),row=rowTexts(dt.getDate(),mIdx(dt)),h=prepHints(row);
+  const opts={body:row.join(" | ")+(h.length?"\n"+h.join(" • "):""),icon:"icon-192.png",tag:"diet-prep"};
+  if(navigator.serviceWorker&&navigator.serviceWorker.ready) navigator.serviceWorker.ready.then(r=>r.showNotification("🛒 कल की तैयारी",opts)).catch(()=>{try{new Notification("🛒 कल की तैयारी",opts);}catch(e){}});
+  else new Notification("🛒 कल की तैयारी",opts);
+}
+setInterval(checkReminder,30000);
+document.addEventListener("visibilitychange",checkReminder);
+
+// 4) paani + kcal + protein (aaj ke liye)
+function isoToday(){return today.getFullYear()+"-"+(today.getMonth()+1)+"-"+today.getDate();}
+function logKey(iso){return "diet_log_"+pfx()+iso;}
+function getLog(iso){try{return JSON.parse(localStorage.getItem(logKey(iso))||"{}");}catch(e){return {};}}
+function setLog(iso,o){localStorage.setItem(logKey(iso),JSON.stringify(o));}
+function bumpWater(n){const l=getLog(isoToday());l.w=Math.max(0,Math.min(20,(l.w||0)+n));setLog(isoToday(),l);renderLog();}
+function setLogField(f,v){const l=getLog(isoToday());l[f]=v===""?undefined:Number(v);setLog(isoToday(),l);}
+function renderLog(){
+  const el=document.getElementById("logCard");
+  if(viewMode==="table"){el.innerHTML="";return;}
+  const l=getLog(isoToday()),w=l.w||0;
+  el.innerHTML=`<div class="log-card"><b>💧 आज का पानी: ${w}/8 गिलास</b>
+    <div class="glasses">${Array.from({length:8},(_,i)=>`<span class="${i<w?'on':''}">💧</span>`).join("")}</div>
+    <div class="log-row"><button type="button" class="secondary" onclick="bumpWater(-1)">−</button><button type="button" onclick="bumpWater(1)">+ गिलास</button>
+    <input type="number" inputmode="numeric" placeholder="kcal" value="${l.c??""}" onchange="setLogField('c',this.value)">
+    <input type="number" inputmode="numeric" placeholder="protein g" value="${l.p??""}" onchange="setLogField('p',this.value)"></div></div>`;
+}
+
+// 5) meal swap — aas-paas ke 3 din me jo nahi hai, aisa vikalp
+function swapMeal(d,m,i){
+  const cur=rowTexts(d,m)[i],near=new Set();
+  for(let k=-3;k<=3;k++){const dd=d+k;if(dd>=1&&dd<=31)near.add(rowTexts(dd,m)[i]);}
+  const pool=[...new Set(meals.map(r=>r[i]))].filter(t=>!near.has(t));
+  if(!pool.length)return;
+  const pick=pool[Math.floor(Math.random()*pool.length)];
+  if(confirm(`"${cur}" की जगह:\n\n${pick}\n\nOK = बदलें, Cancel = रहने दें\n(वापस लाने के लिए ✏️ से edit करें या "Naam Reset")`)) saveCustomMeal(d,m,i,pick);
+}
+
+// 6) family members (alag tracking + alag edits; cloud sync sirf "मैं" profile ka)
+function renderProfiles(){
+  const s=document.getElementById("profileSel");
+  s.innerHTML=profiles.map(p=>`<option value="${p.id}">👤 ${p.name}</option>`).join("")+`<option value="__new">➕ नया member</option><option value="__del">🗑️ यह member हटाएँ</option>`;
+  s.value=profile;
+}
+function switchProfile(id){
+  profile=id;localStorage.setItem("diet_profile",id);
+  try{customMeals=JSON.parse(localStorage.getItem(cmKey())||"{}");}catch(e){customMeals={};}
+  renderProfiles();render();
+}
+document.getElementById("profileSel").addEventListener("change",function(){
+  const v=this.value;
+  if(v==="__new"){
+    const name=(prompt("Member का नाम:")||"").trim();
+    if(!name){renderProfiles();return;}
+    const id="p"+(Math.max(0,...profiles.map(x=>+x.id.slice(1)||0))+1);
+    profiles.push({id,name});localStorage.setItem("diet_profiles",JSON.stringify(profiles));switchProfile(id);return;
+  }
+  if(v==="__del"){
+    if(profile==="main"){alert("मुख्य profile हटाई नहीं जा सकती — पहले कोई और member चुनें।");renderProfiles();return;}
+    const id=profile,pr=profiles.find(x=>x.id===id);
+    if(confirm(`"${pr.name}" और उसका सारा data हटाना है?`)){
+      Object.keys(localStorage).filter(k=>k.startsWith(`diet_${id}_`)||k.startsWith(`diet_log_${id}_`)||k===MAINCM+"_"+id).forEach(k=>localStorage.removeItem(k));
+      profiles=profiles.filter(x=>x.id!==id);localStorage.setItem("diet_profiles",JSON.stringify(profiles));switchProfile("main");
+    }else renderProfiles();
+    return;
+  }
+  switchProfile(v);
+});
+checkReminder();
 
 // bring the active month chip and today's card into view
 requestAnimationFrame(()=>{
