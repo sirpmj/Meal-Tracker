@@ -223,6 +223,9 @@ button:active{transform:scale(.97)}
   .day-list{display:block}
   .day-card{break-inside:avoid;margin-bottom:8px}
 }
+#pickList .pick-item{display:block;width:100%;text-align:left;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-bottom:5px;font-size:12.5px;font-weight:500;white-space:normal}
+#pickList .pick-item small{color:var(--muted);font-size:10px;margin-left:4px}
+#pickList .pick-item:active{background:var(--done-bg)}
 </style>
 </head>
 <body>
@@ -306,7 +309,8 @@ button:active{transform:scale(.97)}
   <section id="tableView" class="hidden">
     <div class="table-toolbar">
       <span>📋 <b id="tableMonthLabel"></b> — <b>M</b> = सिर्फ इस महीने के लिए edit, <b>Y</b> = पूरे साल के लिए edit</span>
-      <button type="button" class="secondary" onclick="resetCustomMealsForMonth()">🔄 Naam Reset</button>
+      <button type="button" class="secondary" onclick="resetCustomMealsForMonth()">🔄 महीना Reset</button>
+      <button type="button" class="secondary" onclick="resetAllCustomMeals()">🗑️ साल Reset</button>
     </div>
     <div class="table-scroll">
       <table id="mealTable">
@@ -404,6 +408,21 @@ const translit=[
  {rom:["broccoli"],dev:"ब्रोकोली"},{rom:["bhindi","okra"],dev:"भिंडी"},{rom:["pulao"],dev:"पुलाव"},{rom:["masoor"],dev:"मसूर"},
  {rom:["matki"],dev:"मटकी"},{rom:["panipuri"],dev:"पानीपूरी"},{rom:["uttapam"],dev:"उत्तपम"},{rom:["dhokli"],dev:"ढोकली"},{rom:["dhokla"],dev:"ढोकला"}
 ];
+
+// ---- approx kcal / protein(g) per typical serving (andaaza, exact nahi) ----
+const NUTRI=[["दाल-बाटी",380,12],["बाटी",250,6],["ढोकली",250,9],["ढोकला",160,7],["खमन",160,7],["गट्टे",250,9],["डोसा",190,6],["चिल्ला",180,9],["उत्तपम",200,6],["इडली",160,5],["सांभर",90,4],["अपम",200,4],
+["थेपला",180,5],["मुठिया",200,6],["पराठा",280,7],["पोहा",250,5],["उपमा",230,5],["सैंडविच",250,8],["पास्ता",300,9],["साबुदाना",300,3],["सूजी",200,6],["दलिया",200,6],["ब्रेड",200,6],["भुट्टा",150,4],["कॉर्न",150,4],["पानीपूरी",200,4],
+["स्प्राउट्स",150,10],["राजमा",210,12],["छोले",210,11],["चना",200,11],["मटकी",190,10],["कल्थी",190,10],["चवली",190,10],["उड़द",210,11],["साबुत मूंग",190,11],["खिचड़ी",250,9],["पुलाव",260,6],["चावल",230,4],["दाल",150,9],["कढ़ी",150,5],
+["रोटला",190,5],["रोटी",200,6],["दही",80,4],["रायता",70,3],["छाछ",40,2],["सलाद",40,1],["भर्ता",120,3],["सब्जी",120,3]];
+function estimate(text){
+  let c=0,p=0;
+  String(text).replace(/\(.*?\)/g,"").split("+").forEach(part=>{
+    part=part.split("/")[0].trim();if(!part)return;
+    const hit=NUTRI.find(n=>part.includes(n[0]));
+    if(hit){c+=hit[1];p+=hit[2];}else{c+=120;p+=3;} // sabzi jaisa generic andaaza
+  });
+  return {c,p};
+}
 
 let activeMonth=0;
 let allOpen=true;
@@ -548,6 +567,7 @@ function initFirebase(){
 }
 function clearAllLocalData(){
   Object.keys(localStorage).filter(k=>/^diet_(?:y\d+_)?\d+_\d+_\d+$/.test(k)).forEach(k=>localStorage.removeItem(k));
+  Object.keys(localStorage).filter(k=>/^diet_log_\d{4}-/.test(k)).forEach(k=>localStorage.removeItem(k));
   if(profile==="main") customMeals={};
   localStorage.setItem(MAINCM,"{}");
 }
@@ -561,6 +581,8 @@ function connectUserSync(uid){
       const data=snap.data();
       if(data.ticks) Object.entries(data.ticks).forEach(([k,v])=>localStorage.setItem(k,v?"1":"0"));
       if(data.customMeals&&profile==="main"){ customMeals=data.customMeals; localStorage.setItem(MAINCM,JSON.stringify(customMeals)); }
+      if(data.logs&&profile==="main") Object.entries(data.logs).forEach(([iso,o])=>localStorage.setItem("diet_log_"+iso,JSON.stringify(o)));
+      if(data.target) localStorage.setItem("diet_target",JSON.stringify(data.target));
     }else{
       pushFullStateToCloud();
     }
@@ -575,7 +597,11 @@ function pushFullStateToCloud(){
     const v=localStorage.getItem(key(d,m,i));
     if(v!==null) ticks[key(d,m,i)]=v==="1";
   }
-  syncDocRef.set({ticks,customMeals,updatedAt:Date.now()},{merge:true}).catch(()=>{});
+  const logs={};
+  Object.keys(localStorage).forEach(k=>{const mm=k.match(/^diet_log_(\d{4}-\d+-\d+)$/);if(mm){try{logs[mm[1]]=JSON.parse(localStorage.getItem(k));}catch(e){}}});
+  const payload={ticks,customMeals,logs,updatedAt:Date.now()};
+  try{const tg=JSON.parse(localStorage.getItem("diet_target")||"null");if(tg)payload.target=tg;}catch(e){}
+  syncDocRef.set(payload,{merge:true}).catch(()=>{});
 }
 function pushTickToCloud(d,m,i,v){
   if(!syncDocRef||applyingRemote||profile!=="main")return;
@@ -887,9 +913,10 @@ function render(){
           return `<label class="meal-row m${i} ${checked?'checked':''}">
             <input type="checkbox" ${checked?"checked":""} onchange="toggleMeal(${d},${m},${i},this.checked)">
             <span class="meal-icon">${mealMeta[i].icon}</span>
-            <span class="meal-text">${text}<small>${mealMeta[i].label}</small></span>
+            <span class="meal-text">${text}<small>${mealMeta[i].label} • ~${estimate(text).c} kcal • ${estimate(text).p}g</small></span>
             <button type="button" class="edit-meal-btn" onclick="event.preventDefault();event.stopPropagation();editMealPrompt(${d},${m},${i})" title="Meal edit करें">✏️</button>
             <button type="button" class="edit-meal-btn" onclick="event.preventDefault();event.stopPropagation();swapMeal(${d},${m},${i})" title="दूसरा विकल्प">🔀</button>
+            ${isCustom(d,m,i)?`<button type="button" class="edit-meal-btn" onclick="event.preventDefault();event.stopPropagation();resetMealPrompt(${d},${m},${i})" title="Default नाम वापस">↩️</button>`:''}
           </label>`;
         }).join("")}
       </div>
@@ -927,6 +954,7 @@ function renderTable(){
       <td class="td-edit">
         <button type="button" class="scope-btn" onclick="openDayEditModal(${d},'month')" title="सिर्फ ${months[activeMonth]} महीने के लिए edit करें">M</button>
         <button type="button" class="scope-btn" onclick="openDayEditModal(${d},'year')" title="पूरे साल (सभी महीनों) के लिए edit करें">Y</button>
+        ${[0,1,2].some(i=>isCustom(d,activeMonth,i))?`<button type="button" class="scope-btn" onclick="resetDayPrompt(${d})" title="इस दिन का नाम reset करें">↩️</button>`:''}
       </td>
     </tr>`;
   }
@@ -1145,16 +1173,17 @@ function openGrocery(n=7){
 
 // 2) weekly summary
 function openWeekly(){
-  let html="",tot=0,miss=[0,0,0],water=0,wdays=0;
+  let html="",tot=0,miss=[0,0,0],water=0,wdays=0,nd=0,nc=0,np=0,ok=0;const T=getTarget();
   for(let k=6;k>=0;k--){
     const dt=dateAt(-k),d=dt.getDate(),m=mIdx(dt);
     const st=[0,1,2].map(i=>get(d,m,i));
     st.forEach((v,i)=>{if(v)tot++;else miss[i]++;});
     const l=getLog(dt.getFullYear()+"-"+(dt.getMonth()+1)+"-"+d);if(l.w){water+=l.w;wdays++;}
+    const nu=dayNutri(dt);if(nu.has){nd++;nc+=nu.c;np+=nu.p;if(nu.p>=T.p&&nu.c<=T.c*1.1)ok++;}
     html+=`<div>${d} ${months[m]} ${weekdaysHiShort[dt.getDay()]}: ${st.map(v=>v?"✅":"❌").join(" ")}</div>`;
   }
   const worst=miss.indexOf(Math.max(...miss));
-  showModal("📈 पिछले 7 दिन",`<p>${html}</p><p><b>${tot}/21 meals पूरे (${Math.round(tot/21*100)}%)</b><br>सबसे ज़्यादा छूटा: ${mealMeta[worst].icon} ${mealMeta[worst].label} (${miss[worst]} बार)${wdays?`<br>💧 औसत पानी: ${(water/wdays).toFixed(1)} गिलास/दिन`:""}</p>`,
+  showModal("📈 पिछले 7 दिन",`<p>${html}</p><p><b>${tot}/21 meals पूरे (${Math.round(tot/21*100)}%)</b><br>सबसे ज़्यादा छूटा: ${mealMeta[worst].icon} ${mealMeta[worst].label} (${miss[worst]} बार)${wdays?`<br>💧 औसत पानी: ${(water/wdays).toFixed(1)} गिलास/दिन`:""}${nd?`<br>🔥 औसत ${Math.round(nc/nd)} kcal (target ${T.c}) • 💪 ${Math.round(np/nd)} g protein (target ${T.p})<br>🎯 ${ok}/${nd} दिन target पूरा`:""}</p>`,
     [{t:"📤 Share",f:()=>{shareText(`📈 पिछले 7 दिन: ${tot}/21 meals पूरे (${Math.round(tot/21*100)}%)`);return false;}}]);
 }
 
@@ -1190,28 +1219,107 @@ document.addEventListener("visibilitychange",checkReminder);
 function isoToday(){return today.getFullYear()+"-"+(today.getMonth()+1)+"-"+today.getDate();}
 function logKey(iso){return "diet_log_"+pfx()+iso;}
 function getLog(iso){try{return JSON.parse(localStorage.getItem(logKey(iso))||"{}");}catch(e){return {};}}
-function setLog(iso,o){localStorage.setItem(logKey(iso),JSON.stringify(o));}
+function setLog(iso,o){localStorage.setItem(logKey(iso),JSON.stringify(o));pushLogToCloud(iso,o);}
+function pushLogToCloud(iso,o){
+  if(!syncDocRef||applyingRemote||profile!=="main")return;
+  const clean=JSON.parse(JSON.stringify(o));
+  syncDocRef.update(new firebase.firestore.FieldPath("logs",iso),clean).catch(()=>{syncDocRef.set({logs:{[iso]:clean}},{merge:true}).catch(()=>{});});
+}
+function pushTargetToCloud(t){
+  if(!syncDocRef||applyingRemote||profile!=="main")return;
+  syncDocRef.set({target:t,updatedAt:Date.now()},{merge:true}).catch(()=>{});
+}
+function getTarget(){try{return Object.assign({c:1800,p:60},JSON.parse(localStorage.getItem("diet_target")||"{}"));}catch(e){return {c:1800,p:60};}}
+function dayNutri(dt){
+  const d=dt.getDate(),m=mIdx(dt),l=getLog(dt.getFullYear()+"-"+(dt.getMonth()+1)+"-"+d);
+  let ac=0,ap=0,any=false;
+  rowTexts(d,m).forEach((t,i)=>{if(get(d,m,i)){const e=estimate(t);ac+=e.c;ap+=e.p;any=true;}});
+  return {c:l.c!=null?l.c:ac,p:l.p!=null?l.p:ap,ac,ap,l,has:any||l.c!=null||l.p!=null};
+}
 function bumpWater(n){const l=getLog(isoToday());l.w=Math.max(0,Math.min(20,(l.w||0)+n));setLog(isoToday(),l);renderLog();}
-function setLogField(f,v){const l=getLog(isoToday());l[f]=v===""?undefined:Number(v);setLog(isoToday(),l);}
+function setLogField(f,v){const l=getLog(isoToday());l[f]=v===""?undefined:Number(v);setLog(isoToday(),l);renderLog();}
 function renderLog(){
   const el=document.getElementById("logCard");
   if(viewMode==="table"){el.innerHTML="";return;}
-  const l=getLog(isoToday()),w=l.w||0;
+  const n=dayNutri(today),l=n.l,w=l.w||0,T=getTarget();
+  const bar=(v,t,col)=>`<div style="height:7px;background:var(--line);border-radius:5px;overflow:hidden;margin:3px 0 7px"><div style="height:100%;width:${Math.min(100,Math.round(v/t*100))}%;background:${col}"></div></div>`;
+  const over=n.c>T.c*1.1;
   el.innerHTML=`<div class="log-card"><b>💧 आज का पानी: ${w}/8 गिलास</b>
     <div class="glasses">${Array.from({length:8},(_,i)=>`<span class="${i<w?'on':''}">💧</span>`).join("")}</div>
-    <div class="log-row"><button type="button" class="secondary" onclick="bumpWater(-1)">−</button><button type="button" onclick="bumpWater(1)">+ गिलास</button>
-    <input type="number" inputmode="numeric" placeholder="kcal" value="${l.c??""}" onchange="setLogField('c',this.value)">
-    <input type="number" inputmode="numeric" placeholder="protein g" value="${l.p??""}" onchange="setLogField('p',this.value)"></div></div>`;
+    <div class="log-row" style="margin-bottom:8px"><button type="button" class="secondary" onclick="bumpWater(-1)">−</button><button type="button" onclick="bumpWater(1)">+ गिलास</button><button type="button" class="secondary" onclick="openTarget()">🎯 Target</button></div>
+    <div>🔥 <b>${n.c}</b> / ${T.c} kcal ${l.c!=null?"":"<small style='color:var(--muted)'>(tick किए meals से अंदाज़ा)</small>"}${over?" ⚠️":""}</div>${bar(n.c,T.c,over?"#C0392B":"var(--accent)")}
+    <div>💪 <b>${n.p}</b> / ${T.p} g protein ${l.p!=null?"":"<small style='color:var(--muted)'>(अंदाज़ा)</small>"}${n.p>=T.p?" ✅":""}</div>${bar(n.p,T.p,"var(--primary)")}
+    <div class="log-row"><input type="number" inputmode="numeric" placeholder="kcal खुद डालें (अभी ${n.ac})" value="${l.c??""}" onchange="setLogField('c',this.value)">
+    <input type="number" inputmode="numeric" placeholder="protein g (अभी ${n.ap})" value="${l.p??""}" onchange="setLogField('p',this.value)"></div></div>`;
+}
+function openTarget(){
+  const t=getTarget();
+  showModal("🎯 रोज़ का Target",`<p>अपना kcal और protein target डालें (सिर्फ tracking के लिए)।</p><input id="tgC" type="number" inputmode="numeric" placeholder="kcal" value="${t.c}"><input id="tgP" type="number" inputmode="numeric" placeholder="protein g" value="${t.p}">`,
+    [{t:"Save",f:()=>{const c=+document.getElementById("tgC").value,p=+document.getElementById("tgP").value;
+      if(!(c>0)||!(p>0)){alert("सही संख्या डालें।");return false;}
+      localStorage.setItem("diet_target",JSON.stringify({c,p}));pushTargetToCloud({c,p});renderLog();}}]);
 }
 
 // 5) meal swap — aas-paas ke 3 din me jo nahi hai, aisa vikalp
 function swapMeal(d,m,i){
   const cur=rowTexts(d,m)[i],near=new Set();
   for(let k=-3;k<=3;k++){const dd=d+k;if(dd>=1&&dd<=31)near.add(rowTexts(dd,m)[i]);}
-  const pool=[...new Set(meals.map(r=>r[i]))].filter(t=>!near.has(t));
-  if(!pool.length)return;
-  const pick=pool[Math.floor(Math.random()*pool.length)];
-  if(confirm(`"${cur}" की जगह:\n\n${pick}\n\nOK = बदलें, Cancel = रहने दें\n(वापस लाने के लिए ✏️ से edit करें या "Naam Reset")`)) saveCustomMeal(d,m,i,pick);
+  const all=[...new Set(meals.map(r=>r[i]))].filter(t=>t!==cur);
+  const fresh=all.filter(t=>!near.has(t)),used=all.filter(t=>near.has(t));
+  pickerCtx={d,m,i,fresh,used};
+  showModal(`🔀 ${mealMeta[i].icon} ${mealMeta[i].label} — विकल्प`,
+    `<input id="pickQ" type="search" placeholder="🔎 खोजें (poha, dal, आलू...)" oninput="filterPicker()">
+     <div id="pickList" style="max-height:42vh;overflow-y:auto;margin-bottom:10px"></div>
+     <input id="pickCustom" type="text" placeholder="✍️ या अपना खुद का नाम लिखें">`,
+    [{t:"✅ अपना लगाएँ",f:()=>{const v=document.getElementById("pickCustom").value.trim();if(!v)return false;saveCustomMeal(d,m,i,v);}},
+     {t:"🎲 Random",f:()=>{const p=pickerCtx.fresh.length?pickerCtx.fresh:pickerCtx.used;if(!p.length)return false;saveCustomMeal(d,m,i,p[Math.floor(Math.random()*p.length)]);}}]);
+  filterPicker();
+}
+function pickerMatch(text,q){
+  if(!q)return true;
+  const t=text.toLowerCase();
+  if(t.includes(q))return true;
+  return q.length>=3&&translit.some(x=>x.rom.some(r=>r.includes(q)||q.includes(r))&&text.includes(x.dev));
+}
+function filterPicker(){
+  const box=document.getElementById("pickList");if(!box||!pickerCtx)return;
+  const q=document.getElementById("pickQ").value.trim().toLowerCase();
+  box.innerHTML="";
+  const add=(t,isUsed)=>{
+    if(!pickerMatch(t,q))return;
+    const b=document.createElement("button");b.type="button";b.className="pick-item";
+    b.textContent=t;
+    if(isUsed){const s=document.createElement("small");s.textContent="(पास के दिनों में है)";b.appendChild(s);}
+    b.onclick=()=>{document.querySelectorAll(".sync-modal-backdrop").forEach(e=>e.remove());saveCustomMeal(pickerCtx.d,pickerCtx.m,pickerCtx.i,t);};
+    box.appendChild(b);
+  };
+  pickerCtx.fresh.forEach(t=>add(t,false));
+  pickerCtx.used.forEach(t=>add(t,true));
+  if(!box.children.length)box.innerHTML='<p>कोई विकल्प नहीं मिला — नीचे अपना नाम लिखें।</p>';
+}
+let pickerCtx=null;
+
+// ---------- separate Naam Reset (meal / day / month / year) ----------
+function isCustom(d,m,i){return Object.prototype.hasOwnProperty.call(customMeals,mealKey(d,m,i));}
+function clearCustom(d,m,i){const k=mealKey(d,m,i);if(isCustom(d,m,i)){delete customMeals[k];pushCustomMealToCloud(k,null);}}
+function finishReset(){localStorage.setItem(cmKey(),JSON.stringify(customMeals));render();}
+function resetMealPrompt(d,m,i){
+  showModal("↩️ Naam Reset",`<p>"${rowFor(d)[i]}" — default नाम वापस लाना है। कहाँ?</p>`,[
+    {t:"सिर्फ "+months[m],f:()=>{clearCustom(d,m,i);finishReset();}},
+    {t:"पूरे साल",f:()=>{for(let mm=0;mm<12;mm++)clearCustom(d,mm,i);finishReset();}}]);
+}
+function resetDayPrompt(d){
+  const m=activeMonth;
+  showModal("↩️ दिन "+d+" — Naam Reset",`<p>इस दिन के तीनों meals default नाम पर वापस। कहाँ?</p>`,[
+    {t:"सिर्फ "+months[m],f:()=>{for(let i=0;i<3;i++)clearCustom(d,m,i);finishReset();}},
+    {t:"पूरे साल",f:()=>{for(let mm=0;mm<12;mm++)for(let i=0;i<3;i++)clearCustom(d,mm,i);finishReset();}}]);
+}
+function resetAllCustomMeals(){
+  const keys=Object.keys(customMeals);
+  if(!keys.length){alert("कोई edited नाम नहीं है।");return;}
+  if(!confirm(`पूरे साल के सभी ${keys.length} edited meal names default पर reset करने हैं?`))return;
+  keys.forEach(k=>{delete customMeals[k];pushCustomMealToCloud(k,null);});
+  finishReset();
 }
 
 // 6) family members (alag tracking + alag edits; cloud sync sirf "मैं" profile ka)
