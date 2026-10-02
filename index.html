@@ -226,6 +226,13 @@ button:active{transform:scale(.97)}
 #pickList .pick-item{display:block;width:100%;text-align:left;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:9px;padding:8px 10px;margin-bottom:5px;font-size:12.5px;font-weight:500;white-space:normal}
 #pickList .pick-item small{color:var(--muted);font-size:10px;margin-left:4px}
 #pickList .pick-item:active{background:var(--done-bg)}
+#menuPanel{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+.pick-tabs{display:flex;gap:5px;margin-bottom:8px}
+.pick-tab{flex:1;padding:6px 2px;font-size:11.5px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-weight:600}
+.pick-tab.on{background:var(--primary);color:#fff;border-color:var(--primary)}
+.pick-row{display:flex;gap:5px;margin-bottom:5px;align-items:stretch}
+#pickList .pick-row .pick-item{width:auto;flex:1;margin-bottom:0}
+.pick-star{background:transparent;border:0;font-size:18px;padding:0 6px;cursor:pointer}
 </style>
 </head>
 <body>
@@ -233,8 +240,6 @@ button:active{transform:scale(.97)}
   <div class="wrap header-top">
     <span class="brand-emoji">🍱</span>
     <span class="h-title">30-Day Diet Tracker</span>
-    <button class="theme-toggle" onclick="window.print()" title="Print">🖨️</button>
-    <button class="theme-toggle" onclick="shareProgress()" title="Share">📤</button>
     <button class="theme-toggle" id="syncBtn" onclick="openAuthModal()" title="Login / Account">🧑‍💼</button>
     <button class="theme-toggle" id="themeBtn" onclick="toggleTheme()">🌙</button>
   </div>
@@ -272,20 +277,34 @@ button:active{transform:scale(.97)}
         <option value="done">केवल Completed</option>
       </select>
       <select id="dayFilter"><option value="all">सभी दिन</option></select>
-      <button onclick="clearAll()">Reset महीना</button>
-      <button class="secondary" onclick="toggleGrocery()">🛒 दोहराई गई चीज़ें</button>
-    </div>
-    <div class="controls-row four-col">
-      <button class="secondary" id="toggleAllBtn" onclick="toggleAll()">सभी बंद करें</button>
       <button class="secondary" onclick="undoLast()">↩️ Undo</button>
-      <button class="secondary" onclick="exportBackup()">💾 Backup लें</button>
-      <button class="secondary" onclick="triggerRestoreFile()">📥 Restore करें</button>
+      <button onclick="toggleMenu()" id="menuBtn">⚙️ मेनू</button>
     </div>
-    <div class="controls-row four-col">
-      <button class="secondary" onclick="openGrocery()">🛒 सामान सूची</button>
-      <button class="secondary" onclick="openWeekly()">📈 Weekly</button>
-      <button class="secondary" onclick="openReminder()">🔔 Reminder</button>
-      <select id="profileSel"></select>
+    <div id="menuPanel" class="hidden">
+      <div class="controls-row">
+        <button class="secondary" onclick="openGrocery()">🛒 सामान सूची</button>
+        <button class="secondary" onclick="toggleGrocery()">🔁 दोहराई चीज़ें</button>
+        <button class="secondary" onclick="openWeekly()">📈 Weekly</button>
+      </div>
+      <div class="controls-row">
+        <button class="secondary" onclick="openWeight()">⚖️ Weight</button>
+        <button class="secondary" onclick="openPastLog()">📝 पुराने दिन का log</button>
+        <button class="secondary" onclick="openTarget()">🎯 Target</button>
+      </div>
+      <div class="controls-row">
+        <button class="secondary" onclick="openReminder()">🔔 Reminder</button>
+        <button class="secondary" onclick="window.print()">🖨️ Print</button>
+        <button class="secondary" onclick="shareProgress()">📤 Share</button>
+      </div>
+      <div class="controls-row">
+        <button class="secondary" onclick="exportBackup()">💾 Backup</button>
+        <button class="secondary" onclick="triggerRestoreFile()">📥 Restore</button>
+        <button class="secondary" id="toggleAllBtn" onclick="toggleAll()">सभी बंद करें</button>
+      </div>
+      <div class="controls-row">
+        <select id="profileSel"></select>
+        <button onclick="clearAll()">Reset महीना</button>
+      </div>
     </div>
     <input type="file" id="restoreFileInput" accept="application/json,.json" class="hidden" onchange="handleRestoreFile(event)">
   </section>
@@ -568,6 +587,7 @@ function initFirebase(){
 function clearAllLocalData(){
   Object.keys(localStorage).filter(k=>/^diet_(?:y\d+_)?\d+_\d+_\d+$/.test(k)).forEach(k=>localStorage.removeItem(k));
   Object.keys(localStorage).filter(k=>/^diet_log_\d{4}-/.test(k)).forEach(k=>localStorage.removeItem(k));
+  localStorage.removeItem("diet_weight_main");
   if(profile==="main") customMeals={};
   localStorage.setItem(MAINCM,"{}");
 }
@@ -583,6 +603,7 @@ function connectUserSync(uid){
       if(data.customMeals&&profile==="main"){ customMeals=data.customMeals; localStorage.setItem(MAINCM,JSON.stringify(customMeals)); }
       if(data.logs&&profile==="main") Object.entries(data.logs).forEach(([iso,o])=>localStorage.setItem("diet_log_"+iso,JSON.stringify(o)));
       if(data.target) localStorage.setItem("diet_target",JSON.stringify(data.target));
+      if(data.weights&&profile==="main") localStorage.setItem("diet_weight_main",JSON.stringify(data.weights));
     }else{
       pushFullStateToCloud();
     }
@@ -601,6 +622,7 @@ function pushFullStateToCloud(){
   Object.keys(localStorage).forEach(k=>{const mm=k.match(/^diet_log_(\d{4}-\d+-\d+)$/);if(mm){try{logs[mm[1]]=JSON.parse(localStorage.getItem(k));}catch(e){}}});
   const payload={ticks,customMeals,logs,updatedAt:Date.now()};
   try{const tg=JSON.parse(localStorage.getItem("diet_target")||"null");if(tg)payload.target=tg;}catch(e){}
+  try{const wt=JSON.parse(localStorage.getItem("diet_weight_main")||"{}");if(Object.keys(wt).length)payload.weights=wt;}catch(e){}
   syncDocRef.set(payload,{merge:true}).catch(()=>{});
 }
 function pushTickToCloud(d,m,i,v){
@@ -896,14 +918,13 @@ function render(){
     visible++;
     const isOpen=openState[d]||false;
     const pct=Math.round(completed/3*100);
-    const isBonus=false;
 
     const isToday=e.off!==null?e.off===0:(activeMonth===todayMonthIdx&&d===todayDate);
     const isSelected=(df!=="all"&&df===String(d));
     html+=`<article class="day-card ${done?'done':''} ${isOpen?'open':''} ${isToday?'today':''} ${e.off>0?'rel-'+e.off:''} ${isSelected?'selected':''}" data-day="${d}">
       <div class="day-head" role="button" tabindex="0" onclick="toggleCard(this.parentElement)" onkeydown="if(event.key==='Enter')toggleCard(this.parentElement)">
         <span class="day-badge" style="--pct:${pct}"><span>${d}</span></span>
-        <span class="day-title">दिन ${d} <span class="wd-badge">${weekdaysHi[wd]}</span>${showWindow?` <span class="wd-badge">${months[m]}</span>`:''}${isBonus?' <small style="display:inline">(दिन 1 दोहराया)</small>':''}<small>${completed}/3 पूरा</small></span>
+        <span class="day-title">दिन ${d} <span class="wd-badge">${weekdaysHi[wd]}</span>${showWindow?` <span class="wd-badge">${months[m]}</span>`:''}<small>${completed}/3 पूरा</small></span>
         <span class="chev">▾</span>
         <button type="button" class="mark-all-btn" onclick="markAllDay(event,${d},${m})" title="सभी meals एक साथ tick/untick करें">${done?'↺':'✔️'}</button>
       </div>
@@ -916,6 +937,7 @@ function render(){
             <span class="meal-text">${text}<small>${mealMeta[i].label} • ~${estimate(text).c} kcal • ${estimate(text).p}g</small></span>
             <button type="button" class="edit-meal-btn" onclick="event.preventDefault();event.stopPropagation();editMealPrompt(${d},${m},${i})" title="Meal edit करें">✏️</button>
             <button type="button" class="edit-meal-btn" onclick="event.preventDefault();event.stopPropagation();swapMeal(${d},${m},${i})" title="दूसरा विकल्प">🔀</button>
+            ${i===1?`<button type="button" class="edit-meal-btn" onclick="event.preventDefault();event.stopPropagation();swapLD(${d},${m})" title="दोपहर ↔ शाम आपस में बदलें">↔️</button>`:''}
             ${isCustom(d,m,i)?`<button type="button" class="edit-meal-btn" onclick="event.preventDefault();event.stopPropagation();resetMealPrompt(${d},${m},${i})" title="Default नाम वापस">↩️</button>`:''}
           </label>`;
         }).join("")}
@@ -1025,7 +1047,7 @@ function clearAll(){
 
 // ---------- Backup (export) / Restore (import) — works fully offline, no login needed ----------
 function exportBackup(){
-  const data={app:"diet-30-day-tracker",exportedAt:new Date().toISOString(),ticks:{},customMeals,logs:Object.fromEntries(Object.keys(localStorage).filter(k=>k.startsWith("diet_log_")).map(k=>[k,localStorage.getItem(k)]))};
+  const data={app:"diet-30-day-tracker",exportedAt:new Date().toISOString(),ticks:{},customMeals,weights:getWeights(),logs:Object.fromEntries(Object.keys(localStorage).filter(k=>k.startsWith("diet_log_")).map(k=>[k,localStorage.getItem(k)]))};
   for(let m=0;m<12;m++)for(let d=1;d<=31;d++)for(let i=0;i<3;i++){
     const v=localStorage.getItem(key(d,m,i));
     if(v!==null) data.ticks[key(d,m,i)]=v;
@@ -1058,6 +1080,7 @@ function handleRestoreFile(evt){
       }
       Object.entries(data.ticks).forEach(([k,v])=>localStorage.setItem(k,v==="1"?"1":"0"));
       if(data.logs)Object.entries(data.logs).forEach(([k,v])=>localStorage.setItem(k,v));
+      if(data.weights&&typeof data.weights==="object")localStorage.setItem(wKey(),JSON.stringify(data.weights));
       if(data.customMeals&&typeof data.customMeals==="object"){
         customMeals=data.customMeals;
         localStorage.setItem(cmKey(),JSON.stringify(customMeals));
@@ -1260,20 +1283,116 @@ function openTarget(){
       localStorage.setItem("diet_target",JSON.stringify({c,p}));pushTargetToCloud({c,p});renderLog();}}]);
 }
 
+// ---------- ⚙️ menu ----------
+function toggleMenu(force){
+  const p=document.getElementById("menuPanel");
+  const show=typeof force==="boolean"?force:p.classList.contains("hidden");
+  p.classList.toggle("hidden",!show);
+  document.getElementById("menuBtn").textContent=show?"✖️ बंद":"⚙️ मेनू";
+}
+document.getElementById("menuPanel").addEventListener("click",e=>{if(e.target.closest("button"))toggleMenu(false);});
+
+// ---------- date helpers ----------
+function isoOf(dt){return dt.getFullYear()+"-"+(dt.getMonth()+1)+"-"+dt.getDate();}
+function isoFromInput(v){const a=v.split("-").map(Number);return a[0]+"-"+a[1]+"-"+a[2];}
+function inputFromIso(iso){const a=iso.split("-").map(Number);return a[0]+"-"+String(a[1]).padStart(2,"0")+"-"+String(a[2]).padStart(2,"0");}
+function isoToDate(iso){const a=iso.split("-").map(Number);return new Date(a[0],a[1]-1,a[2]);}
+
+// ---------- ⚖️ weight log ----------
+function wKey(){return "diet_weight_"+profile;}
+function getWeights(){try{return JSON.parse(localStorage.getItem(wKey())||"{}");}catch(e){return {};}}
+function pushWeightToCloud(iso,v){
+  if(!syncDocRef||applyingRemote||profile!=="main")return;
+  const fp=new firebase.firestore.FieldPath("weights",iso);
+  syncDocRef.update(fp,v===null?firebase.firestore.FieldValue.delete():v).catch(()=>{if(v!==null)syncDocRef.set({weights:{[iso]:v}},{merge:true}).catch(()=>{});});
+}
+function weightChartSVG(ents){
+  if(ents.length<2)return "<p>चार्ट के लिए कम से कम 2 entries चाहिए।</p>";
+  const W=300,H=110,p=14,vs=ents.map(e=>e[1]),mn=Math.min(...vs),mx=Math.max(...vs),rg=(mx-mn)||1;
+  const pts=ents.map((e,i)=>[(p+i*(W-2*p)/(ents.length-1)).toFixed(1),(H-p-(e[1]-mn)/rg*(H-2*p)).toFixed(1)]);
+  return `<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto"><polyline fill="none" stroke="var(--primary)" stroke-width="2" points="${pts.map(q=>q.join(",")).join(" ")}"/>${pts.map(q=>`<circle cx="${q[0]}" cy="${q[1]}" r="3" fill="var(--accent)"/>`).join("")}<text x="${p}" y="10" font-size="9" fill="var(--muted)">${mx} kg</text><text x="${p}" y="${H-3}" font-size="9" fill="var(--muted)">${mn} kg</text></svg>`;
+}
+function openWeight(){
+  const ents=Object.entries(getWeights()).sort((a,b)=>isoToDate(a[0])-isoToDate(b[0])).slice(-20);
+  const last=ents[ents.length-1],diff=ents.length>1?last[1]-ents[0][1]:0;
+  showModal("⚖️ Weight",`${weightChartSVG(ents)}<p>${last?`आख़िरी: <b>${last[1]} kg</b> (${last[0]})`+(ents.length>1?` • बदलाव: <b>${diff>0?"+":""}${diff.toFixed(1)} kg</b> (${ents.length} entries)`:""):"अभी कोई entry नहीं।"}</p>
+    <input id="wDate" type="date" max="${inputFromIso(isoToday())}" value="${inputFromIso(isoToday())}">
+    <input id="wKg" type="number" inputmode="decimal" step="0.1" placeholder="वज़न (kg) — खाली छोड़ें तो उस दिन की entry हटेगी">`,
+    [{t:"Save",f:()=>{
+      const dv=document.getElementById("wDate").value,v=document.getElementById("wKg").value.trim();
+      if(!dv){alert("तारीख चुनें।");return false;}
+      const iso=isoFromInput(dv),all=getWeights();
+      if(v===""){delete all[iso];}
+      else{const n=Number(v);if(!(n>20&&n<300)){alert("सही वज़न डालें।");return false;}all[iso]=n;}
+      localStorage.setItem(wKey(),JSON.stringify(all));
+      pushWeightToCloud(iso,v===""?null:Number(v));
+    }}]);
+}
+
+// ---------- 📝 kisi bhi purane din ka log ----------
+function loadPastLog(){
+  const dv=document.getElementById("pdDate").value;if(!dv)return;
+  const iso=isoFromInput(dv),l=getLog(iso),nu=dayNutri(isoToDate(iso));
+  document.getElementById("pdW").value=l.w??"";
+  document.getElementById("pdC").value=l.c??"";document.getElementById("pdC").placeholder="kcal (अंदाज़ा: "+nu.ac+")";
+  document.getElementById("pdP").value=l.p??"";document.getElementById("pdP").placeholder="protein g (अंदाज़ा: "+nu.ap+")";
+}
+function openPastLog(){
+  showModal("📝 किसी भी दिन का log",`<p>भूला हुआ पानी / kcal / protein भरें। खाली छोड़ेंगे तो kcal/protein tick किए meals के अंदाज़े से गिने जाएँगे।</p>
+    <input id="pdDate" type="date" max="${inputFromIso(isoToday())}" value="${inputFromIso(isoOf(dateAt(-1)))}" onchange="loadPastLog()">
+    <input id="pdW" type="number" inputmode="numeric" placeholder="पानी (गिलास)">
+    <input id="pdC" type="number" inputmode="numeric" placeholder="kcal">
+    <input id="pdP" type="number" inputmode="numeric" placeholder="protein g">`,
+    [{t:"Save",f:()=>{
+      const dv=document.getElementById("pdDate").value;if(!dv){alert("तारीख चुनें।");return false;}
+      const iso=isoFromInput(dv),l=getLog(iso);
+      const f=(id,k,mx)=>{const v=document.getElementById(id).value.trim();if(v==="")delete l[k];else l[k]=Math.max(0,Math.min(mx,Number(v)));};
+      f("pdW","w",20);f("pdC","c",20000);f("pdP","p",1000);
+      setLog(iso,l);render();
+    }}]);
+  loadPastLog();
+}
+
 // 5) meal swap — aas-paas ke 3 din me jo nahi hai, aisa vikalp
+function mainKey(t){return String(t).split(/[\s+\/]+/)[0];}
+function getFavs(){try{return JSON.parse(localStorage.getItem("diet_favs")||"[]");}catch(e){return [];}}
+function toggleFav(t){const f=getFavs();localStorage.setItem("diet_favs",JSON.stringify(f.includes(t)?f.filter(x=>x!==t):f.concat(t)));filterPicker();}
+function swapLD(d,m){
+  const t=rowTexts(d,m);
+  if(t[1]===t[2]){alert("दोपहर और शाम एक ही हैं।");return;}
+  saveCustomMeal(d,m,1,t[2]);saveCustomMeal(d,m,2,t[1]);
+}
 function swapMeal(d,m,i){
-  const cur=rowTexts(d,m)[i],near=new Set();
+  const cur=rowTexts(d,m),near=new Set(cur);
   for(let k=-3;k<=3;k++){const dd=d+k;if(dd>=1&&dd<=31)near.add(rowTexts(dd,m)[i]);}
-  const all=[...new Set(meals.map(r=>r[i]))].filter(t=>t!==cur);
-  const fresh=all.filter(t=>!near.has(t)),used=all.filter(t=>near.has(t));
-  pickerCtx={d,m,i,fresh,used};
-  showModal(`🔀 ${mealMeta[i].icon} ${mealMeta[i].label} — विकल्प`,
-    `<input id="pickQ" type="search" placeholder="🔎 खोजें (poha, dal, आलू...)" oninput="filterPicker()">
-     <div id="pickList" style="max-height:42vh;overflow-y:auto;margin-bottom:10px"></div>
+  pickerCtx={d,m,i,tab:i,cur:cur[i],near,nearMain:new Set([...near].map(mainKey))};
+  const tabs=[[0,"🌅 सुबह"],[1,"☀️ दोपहर"],[2,"🌙 शाम"],["all","सभी"]].map(x=>`<button type="button" class="pick-tab" data-t="${x[0]}" onclick="setPickTab('${x[0]}')">${x[1]}</button>`).join("");
+  showModal(`🔀 ${mealMeta[i].icon} ${mealMeta[i].label} बदलें`,
+    `<div class="pick-tabs">${tabs}</div>
+     <input id="pickQ" type="search" placeholder="🔎 खोजें (poha, dal, आलू...)" oninput="filterPicker()">
+     <div id="pickList" style="max-height:40vh;overflow-y:auto;margin-bottom:10px"></div>
      <input id="pickCustom" type="text" placeholder="✍️ या अपना खुद का नाम लिखें">`,
     [{t:"✅ अपना लगाएँ",f:()=>{const v=document.getElementById("pickCustom").value.trim();if(!v)return false;saveCustomMeal(d,m,i,v);}},
-     {t:"🎲 Random",f:()=>{const p=pickerCtx.fresh.length?pickerCtx.fresh:pickerCtx.used;if(!p.length)return false;saveCustomMeal(d,m,i,p[Math.floor(Math.random()*p.length)]);}}]);
+     {t:"🎲 Random",f:()=>{const r=pickerRank(pickerPool(pickerCtx.tab));if(!r.length)return false;const top=r.filter(x=>x.grp===0).slice(0,5),p=top.length?top:r;saveCustomMeal(d,m,i,p[Math.floor(Math.random()*p.length)].t);}}]);
   filterPicker();
+}
+function setPickTab(t){pickerCtx.tab=t==="all"?"all":+t;filterPicker();}
+function pickerPool(tab){
+  let p=[];
+  (tab==="all"?[0,1,2]:[tab]).forEach(t=>{meals.forEach(r=>p.push(r[t]));p.push(day31[t]);});
+  if(tab==="all")p=p.concat(Object.values(customMeals));
+  return [...new Set(p.concat(getFavs()))].filter(t=>t&&t!==pickerCtx.cur);
+}
+function pickerRank(list){
+  const {d,m,i}=pickerCtx,T=getTarget(),tx=rowTexts(d,m),fav=getFavs();
+  let oc=0,op=0;tx.forEach((t,j)=>{if(j!==i){const e=estimate(t);oc+=e.c;op+=e.p;}});
+  const wc=Math.max(150,T.c-oc),wp=Math.max(0,T.p-op);
+  return list.map(t=>{
+    const e=estimate(t);
+    const score=Math.abs(e.c-wc)/T.c+1.5*Math.max(0,wp-e.p)/T.p-(fav.includes(t)?0.15:0);
+    const grp=pickerCtx.near.has(t)?2:(pickerCtx.nearMain.has(mainKey(t))?1:0);
+    return {t,e,score,grp};
+  }).sort((a,b)=>a.grp-b.grp||a.score-b.score);
 }
 function pickerMatch(text,q){
   if(!q)return true;
@@ -1283,19 +1402,23 @@ function pickerMatch(text,q){
 }
 function filterPicker(){
   const box=document.getElementById("pickList");if(!box||!pickerCtx)return;
-  const q=document.getElementById("pickQ").value.trim().toLowerCase();
+  document.querySelectorAll(".pick-tab").forEach(b=>b.classList.toggle("on",b.dataset.t===String(pickerCtx.tab)));
+  const q=document.getElementById("pickQ").value.trim().toLowerCase(),fav=getFavs();
+  const list=pickerRank(pickerPool(pickerCtx.tab)).filter(x=>pickerMatch(x.t,q));
   box.innerHTML="";
-  const add=(t,isUsed)=>{
-    if(!pickerMatch(t,q))return;
+  list.forEach((x,n)=>{
+    const row=document.createElement("div");row.className="pick-row";
     const b=document.createElement("button");b.type="button";b.className="pick-item";
-    b.textContent=t;
-    if(isUsed){const s=document.createElement("small");s.textContent="(पास के दिनों में है)";b.appendChild(s);}
-    b.onclick=()=>{document.querySelectorAll(".sync-modal-backdrop").forEach(e=>e.remove());saveCustomMeal(pickerCtx.d,pickerCtx.m,pickerCtx.i,t);};
-    box.appendChild(b);
-  };
-  pickerCtx.fresh.forEach(t=>add(t,false));
-  pickerCtx.used.forEach(t=>add(t,true));
-  if(!box.children.length)box.innerHTML='<p>कोई विकल्प नहीं मिला — नीचे अपना नाम लिखें।</p>';
+    b.textContent=(n===0&&x.grp===0&&!q?"✨ ":"")+x.t;
+    const sm=document.createElement("small");
+    sm.textContent=`~${x.e.c} kcal • ${x.e.p}g`+(x.grp===2?" • पास में है":x.grp===1?" • मिलता-जुलता":"");
+    b.appendChild(sm);
+    b.onclick=()=>{document.querySelectorAll(".sync-modal-backdrop").forEach(e=>e.remove());saveCustomMeal(pickerCtx.d,pickerCtx.m,pickerCtx.i,x.t);};
+    const st=document.createElement("button");st.type="button";st.className="pick-star";
+    st.textContent=fav.includes(x.t)?"⭐":"☆";st.onclick=()=>toggleFav(x.t);
+    row.appendChild(b);row.appendChild(st);box.appendChild(row);
+  });
+  if(!list.length)box.innerHTML="<p>कोई विकल्प नहीं मिला — नीचे अपना नाम लिखें।</p>";
 }
 let pickerCtx=null;
 
