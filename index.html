@@ -433,6 +433,11 @@ const NUTRI=[["दाल-बाटी",380,12],["बाटी",250,6],["ढो�
 ["थेपला",180,5],["मुठिया",200,6],["पराठा",280,7],["पोहा",250,5],["उपमा",230,5],["सैंडविच",250,8],["पास्ता",300,9],["साबुदाना",300,3],["सूजी",200,6],["दलिया",200,6],["ब्रेड",200,6],["भुट्टा",150,4],["कॉर्न",150,4],["पानीपूरी",200,4],
 ["स्प्राउट्स",150,10],["राजमा",210,12],["छोले",210,11],["चना",200,11],["मटकी",190,10],["कल्थी",190,10],["चवली",190,10],["उड़द",210,11],["साबुत मूंग",190,11],["खिचड़ी",250,9],["पुलाव",260,6],["चावल",230,4],["दाल",150,9],["कढ़ी",150,5],
 ["रोटला",190,5],["रोटी",200,6],["दही",80,4],["रायता",70,3],["छाछ",40,2],["सलाद",40,1],["भर्ता",120,3],["सब्जी",120,3]];
+function tickedNutri(d,m,row){
+  let c=0,p=0;
+  row.forEach((t,i)=>{if(get(d,m,i)){const e=estimate(t);c+=e.c;p+=e.p;}});
+  return {c,p};
+}
 function estimate(text){
   let c=0,p=0;
   String(text).replace(/\(.*?\)/g,"").split("+").forEach(part=>{
@@ -918,13 +923,14 @@ function render(){
     visible++;
     const isOpen=openState[d]||false;
     const pct=Math.round(completed/3*100);
+    const tn=tickedNutri(d,m,row);
 
     const isToday=e.off!==null?e.off===0:(activeMonth===todayMonthIdx&&d===todayDate);
     const isSelected=(df!=="all"&&df===String(d));
     html+=`<article class="day-card ${done?'done':''} ${isOpen?'open':''} ${isToday?'today':''} ${e.off>0?'rel-'+e.off:''} ${isSelected?'selected':''}" data-day="${d}">
       <div class="day-head" role="button" tabindex="0" onclick="toggleCard(this.parentElement)" onkeydown="if(event.key==='Enter')toggleCard(this.parentElement)">
         <span class="day-badge" style="--pct:${pct}"><span>${d}</span></span>
-        <span class="day-title">दिन ${d} <span class="wd-badge">${weekdaysHi[wd]}</span>${showWindow?` <span class="wd-badge">${months[m]}</span>`:''}<small>${completed}/3 पूरा</small></span>
+        <span class="day-title">दिन ${d} <span class="wd-badge">${weekdaysHi[wd]}</span>${showWindow?` <span class="wd-badge">${months[m]}</span>`:''}<small>${completed}/3 पूरा${completed?` • 🔥 ${tn.c} kcal • 💪 ${tn.p}g`:''}</small></span>
         <span class="chev">▾</span>
         <button type="button" class="mark-all-btn" onclick="markAllDay(event,${d},${m})" title="सभी meals एक साथ tick/untick करें">${done?'↺':'✔️'}</button>
       </div>
@@ -968,8 +974,9 @@ function renderTable(){
     const wd=weekdayFor(d);
     const texts=rowTexts(d,activeMonth);
     const doneCount=[0,1,2].filter(i=>get(d,activeMonth,i)).length;
+    const tn=tickedNutri(d,activeMonth,texts);
     html+=`<tr class="${doneCount===3?'row-done':''}">
-      <td class="td-day">दिन ${d}<small>${weekdaysHi[wd]}</small></td>
+      <td class="td-day">दिन ${d}<small>${weekdaysHi[wd]}</small>${doneCount?`<small>🔥 ${tn.c} • 💪 ${tn.p}g</small>`:''}</td>
       <td class="td-meal-text">${texts[0]}</td>
       <td class="td-meal-text">${texts[1]}</td>
       <td class="td-meal-text">${texts[2]}</td>
@@ -1354,6 +1361,16 @@ function openPastLog(){
 }
 
 // 5) meal swap — aas-paas ke 3 din me jo nahi hai, aisa vikalp
+// default plan me koi bhi same item same slot me itne din se pehle repeat nahi hota (≈9) — wahi gap maintain karte hain
+const MIN_GAP=(()=>{let g=99;for(let t=0;t<3;t++){const p={};meals.forEach((r,ix)=>{(p[r[t]]=p[r[t]]||[]).push(ix);});Object.values(p).forEach(a=>{for(let k=0;k<a.length;k++){const nx=k+1<a.length?a[k+1]:a[0]+30;g=Math.min(g,nx-a[k]);}});}return g===99?7:Math.min(g,10);})();
+function dimM(m){return new Date(yearForMonthIdx(m),(m+8)%12+1,0).getDate();}
+function rowAtOffset(d,m,k){
+  let dd=d+k,mm=m;
+  if(dd<1){if(mm===0)return null;mm--;dd+=dimM(mm);}
+  else if(dd>dimM(mm)){if(mm===11)return null;dd-=dimM(mm);mm++;}
+  return rowTexts(dd,mm);
+}
+function distLabel(k){return k===0?"आज ही":k<0?(-k)+" दिन पहले":k+" दिन बाद";}
 function mainKey(t){return String(t).split(/[\s+\/]+/)[0];}
 function getFavs(){try{return JSON.parse(localStorage.getItem("diet_favs")||"[]");}catch(e){return [];}}
 function toggleFav(t){const f=getFavs();localStorage.setItem("diet_favs",JSON.stringify(f.includes(t)?f.filter(x=>x!==t):f.concat(t)));filterPicker();}
@@ -1362,18 +1379,35 @@ function swapLD(d,m){
   if(t[1]===t[2]){alert("दोपहर और शाम एक ही हैं।");return;}
   saveCustomMeal(d,m,1,t[2]);saveCustomMeal(d,m,2,t[1]);
 }
+function applyPick(t){
+  const c=pickerCtx,k=c.dist[t];
+  if(k!==undefined&&!confirm(`"${t}" ${distLabel(k)} पहले से है (कम से कम ${MIN_GAP} दिन का gap रखना बेहतर है)। फिर भी लगाएँ?`))return false;
+  document.querySelectorAll(".sync-modal-backdrop").forEach(e=>e.remove());
+  saveCustomMeal(c.d,c.m,c.i,t);
+}
 function swapMeal(d,m,i){
-  const cur=rowTexts(d,m),near=new Set(cur);
-  for(let k=-3;k<=3;k++){const dd=d+k;if(dd>=1&&dd<=31)near.add(rowTexts(dd,m)[i]);}
-  pickerCtx={d,m,i,tab:i,cur:cur[i],near,nearMain:new Set([...near].map(mainKey))};
+  const cur=rowTexts(d,m),dist={},main=new Set(cur.map(mainKey));
+  const mark=(t,k)=>{if(dist[t]===undefined||Math.abs(k)<Math.abs(dist[t]))dist[t]=k;};
+  cur.forEach((t,j)=>{if(j!==i)mark(t,0);});
+  for(let k=-MIN_GAP;k<=MIN_GAP;k++){
+    if(!k)continue;const r=rowAtOffset(d,m,k);if(!r)continue;
+    mark(r[i],k);
+    if(Math.abs(k)<=1)r.forEach((t,j)=>{if(j!==i)mark(t,k);});
+    if(Math.abs(k)<=3)main.add(mainKey(r[i]));
+  }
+  delete dist[cur[i]];
+  pickerCtx={d,m,i,tab:i,cur:cur[i],dist,main,showNear:false};
   const tabs=[[0,"🌅 सुबह"],[1,"☀️ दोपहर"],[2,"🌙 शाम"],["all","सभी"]].map(x=>`<button type="button" class="pick-tab" data-t="${x[0]}" onclick="setPickTab('${x[0]}')">${x[1]}</button>`).join("");
   showModal(`🔀 ${mealMeta[i].icon} ${mealMeta[i].label} बदलें`,
     `<div class="pick-tabs">${tabs}</div>
      <input id="pickQ" type="search" placeholder="🔎 खोजें (poha, dal, आलू...)" oninput="filterPicker()">
      <div id="pickList" style="max-height:40vh;overflow-y:auto;margin-bottom:10px"></div>
      <input id="pickCustom" type="text" placeholder="✍️ या अपना खुद का नाम लिखें">`,
-    [{t:"✅ अपना लगाएँ",f:()=>{const v=document.getElementById("pickCustom").value.trim();if(!v)return false;saveCustomMeal(d,m,i,v);}},
-     {t:"🎲 Random",f:()=>{const r=pickerRank(pickerPool(pickerCtx.tab));if(!r.length)return false;const top=r.filter(x=>x.grp===0).slice(0,5),p=top.length?top:r;saveCustomMeal(d,m,i,p[Math.floor(Math.random()*p.length)].t);}}]);
+    [{t:"✅ अपना लगाएँ",f:()=>{const v=document.getElementById("pickCustom").value.trim();if(!v)return false;return applyPick(v);}},
+     {t:"🎲 Random",f:()=>{
+       const r=pickerRank(pickerPool(pickerCtx.tab)).filter(x=>x.grp<2),top=r.filter(x=>x.grp===0).slice(0,5),p=top.length?top:r;
+       if(!p.length){alert("पास के दिनों से बाहर कोई विकल्प नहीं मिला।");return false;}
+       return applyPick(p[Math.floor(Math.random()*p.length)].t);}}]);
   filterPicker();
 }
 function setPickTab(t){pickerCtx.tab=t==="all"?"all":+t;filterPicker();}
@@ -1384,13 +1418,13 @@ function pickerPool(tab){
   return [...new Set(p.concat(getFavs()))].filter(t=>t&&t!==pickerCtx.cur);
 }
 function pickerRank(list){
-  const {d,m,i}=pickerCtx,T=getTarget(),tx=rowTexts(d,m),fav=getFavs();
-  let oc=0,op=0;tx.forEach((t,j)=>{if(j!==i){const e=estimate(t);oc+=e.c;op+=e.p;}});
+  const c=pickerCtx,T=getTarget(),tx=rowTexts(c.d,c.m),fav=getFavs();
+  let oc=0,op=0;tx.forEach((t,j)=>{if(j!==c.i){const e=estimate(t);oc+=e.c;op+=e.p;}});
   const wc=Math.max(150,T.c-oc),wp=Math.max(0,T.p-op);
   return list.map(t=>{
     const e=estimate(t);
     const score=Math.abs(e.c-wc)/T.c+1.5*Math.max(0,wp-e.p)/T.p-(fav.includes(t)?0.15:0);
-    const grp=pickerCtx.near.has(t)?2:(pickerCtx.nearMain.has(mainKey(t))?1:0);
+    const grp=c.dist[t]!==undefined?2:(c.main.has(mainKey(t))?1:0);
     return {t,e,score,grp};
   }).sort((a,b)=>a.grp-b.grp||a.score-b.score);
 }
@@ -1402,22 +1436,31 @@ function pickerMatch(text,q){
 }
 function filterPicker(){
   const box=document.getElementById("pickList");if(!box||!pickerCtx)return;
-  document.querySelectorAll(".pick-tab").forEach(b=>b.classList.toggle("on",b.dataset.t===String(pickerCtx.tab)));
+  const c=pickerCtx;
+  document.querySelectorAll(".pick-tab").forEach(b=>b.classList.toggle("on",b.dataset.t===String(c.tab)));
   const q=document.getElementById("pickQ").value.trim().toLowerCase(),fav=getFavs();
-  const list=pickerRank(pickerPool(pickerCtx.tab)).filter(x=>pickerMatch(x.t,q));
+  const list=pickerRank(pickerPool(c.tab)).filter(x=>pickerMatch(x.t,q));
+  const ok=list.filter(x=>x.grp<2),near=list.filter(x=>x.grp===2);
   box.innerHTML="";
-  list.forEach((x,n)=>{
+  const addRow=(x,best)=>{
     const row=document.createElement("div");row.className="pick-row";
     const b=document.createElement("button");b.type="button";b.className="pick-item";
-    b.textContent=(n===0&&x.grp===0&&!q?"✨ ":"")+x.t;
+    b.textContent=(best?"✨ ":x.grp===2?"⚠️ ":"")+x.t;
     const sm=document.createElement("small");
-    sm.textContent=`~${x.e.c} kcal • ${x.e.p}g`+(x.grp===2?" • पास में है":x.grp===1?" • मिलता-जुलता":"");
-    b.appendChild(sm);
-    b.onclick=()=>{document.querySelectorAll(".sync-modal-backdrop").forEach(e=>e.remove());saveCustomMeal(pickerCtx.d,pickerCtx.m,pickerCtx.i,x.t);};
+    sm.textContent=`~${x.e.c} kcal • ${x.e.p}g`+(x.grp===2?" • "+distLabel(c.dist[x.t]):x.grp===1?" • मिलता-जुलता":"");
+    b.appendChild(sm);b.onclick=()=>applyPick(x.t);
     const st=document.createElement("button");st.type="button";st.className="pick-star";
     st.textContent=fav.includes(x.t)?"⭐":"☆";st.onclick=()=>toggleFav(x.t);
     row.appendChild(b);row.appendChild(st);box.appendChild(row);
-  });
+  };
+  ok.forEach((x,n)=>addRow(x,n===0&&x.grp===0&&!q));
+  if(near.length){
+    const t=document.createElement("button");t.type="button";t.className="pick-item";t.style.textAlign="center";
+    t.textContent=(c.showNear||q?"▾":"▸")+` ⚠️ ${near.length} विकल्प पास में हैं (${MIN_GAP} दिन के अंदर)`;
+    t.onclick=()=>{c.showNear=!c.showNear;filterPicker();};
+    box.appendChild(t);
+    if(c.showNear||q)near.forEach(x=>addRow(x,false));
+  }
   if(!list.length)box.innerHTML="<p>कोई विकल्प नहीं मिला — नीचे अपना नाम लिखें।</p>";
 }
 let pickerCtx=null;
