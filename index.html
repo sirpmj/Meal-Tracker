@@ -233,6 +233,7 @@ button:active{transform:scale(.97)}
 .pick-row{display:flex;gap:5px;margin-bottom:5px;align-items:stretch}
 #pickList .pick-row .pick-item{width:auto;flex:1;margin-bottom:0}
 .pick-star{background:transparent;border:0;font-size:18px;padding:0 6px;cursor:pointer}
+.meal-row.st{opacity:.92;border-left:3px solid var(--accent)}
 </style>
 </head>
 <body>
@@ -280,26 +281,17 @@ button:active{transform:scale(.97)}
       <button class="secondary" onclick="undoLast()">↩️ Undo</button>
       <button onclick="toggleMenu()" id="menuBtn">⚙️ मेनू</button>
     </div>
+    <div class="controls-row four-col">
+      <button class="secondary" onclick="openGrocery()">🛒 सामान</button>
+      <button class="secondary" onclick="openWeekly()">📈 Weekly</button>
+      <button class="secondary" onclick="openWeight()">⚖️ Weight</button>
+      <button class="secondary" onclick="openPastLog()">📝 Log</button>
+    </div>
     <div id="menuPanel" class="hidden">
       <div class="controls-row">
-        <button class="secondary" onclick="openGrocery()">🛒 सामान सूची</button>
         <button class="secondary" onclick="toggleGrocery()">🔁 दोहराई चीज़ें</button>
-        <button class="secondary" onclick="openWeekly()">📈 Weekly</button>
-      </div>
-      <div class="controls-row">
-        <button class="secondary" onclick="openWeight()">⚖️ Weight</button>
-        <button class="secondary" onclick="openPastLog()">📝 पुराने दिन का log</button>
         <button class="secondary" onclick="openTarget()">🎯 Target</button>
-      </div>
-      <div class="controls-row">
         <button class="secondary" onclick="openReminder()">🔔 Reminder</button>
-        <button class="secondary" onclick="window.print()">🖨️ Print</button>
-        <button class="secondary" onclick="shareProgress()">📤 Share</button>
-      </div>
-      <div class="controls-row">
-        <button class="secondary" onclick="exportBackup()">💾 Backup</button>
-        <button class="secondary" onclick="triggerRestoreFile()">📥 Restore</button>
-        <button class="secondary" id="toggleAllBtn" onclick="toggleAll()">सभी बंद करें</button>
       </div>
       <div class="controls-row">
         <button class="secondary" onclick="openRules()">🎛️ नियम</button>
@@ -307,8 +299,17 @@ button:active{transform:scale(.97)}
         <button class="secondary" onclick="planWeek()">✨ Best हफ़्ता</button>
       </div>
       <div class="controls-row">
-        <select id="profileSel"></select>
+        <button class="secondary" onclick="shareProgress()">📤 Share</button>
+        <button class="secondary" onclick="window.print()">🖨️ Print</button>
+        <button class="secondary" id="toggleAllBtn" onclick="toggleAll()">सभी बंद करें</button>
+      </div>
+      <div class="controls-row">
+        <button class="secondary" onclick="exportBackup()">💾 Backup</button>
+        <button class="secondary" onclick="triggerRestoreFile()">📥 Restore</button>
         <button onclick="clearAll()">Reset महीना</button>
+      </div>
+      <div class="controls-row">
+        <select id="profileSel"></select>
       </div>
     </div>
     <input type="file" id="restoreFileInput" accept="application/json,.json" class="hidden" onchange="handleRestoreFile(event)">
@@ -440,7 +441,7 @@ const NUTRI=[["दाल-बाटी",380,12],["बाटी",250,6],["ढो�
 ["रोटला",190,5],["रोटी",200,6],["दही",80,4],["रायता",70,3],["छाछ",40,2],["सलाद",40,1],["भर्ता",120,3],["सब्जी",120,3]];
 function tickedNutri(d,m,row){
   let c=0,p=0;
-  row.forEach((t,i)=>{if(get(d,m,i)){const e=estimate(t);c+=e.c;p+=e.p;}});
+  row.forEach((t,i)=>{const n=mealNutri(d,m,i,t);c+=n.c;p+=n.p;});
   return {c,p};
 }
 function estimate(text){
@@ -536,6 +537,64 @@ function set(d,m,i,v){
   pushTickToCloud(d,m,i,v);
 }
 
+// ---------- meal status: बाहर खाया / व्रत-उपवास / skip ----------
+let _stRaw=null,_stObj={};
+function stKey(){return "diet_st_"+pfx()+(baseYear>START_YEAR?"y"+baseYear:"");}
+function stField(){return baseYear>START_YEAR?"status_y"+baseYear:"status";}
+function getStatusMap(){
+  const raw=localStorage.getItem(stKey());
+  if(raw!==_stRaw){_stRaw=raw;try{_stObj=JSON.parse(raw||"{}")||{};}catch(e){_stObj={};}}
+  return _stObj;
+}
+function stat(d,m,i){return getStatusMap()[d+"_"+m+"_"+i]||null;}
+function setStat(d,m,i,o){
+  const mp=getStatusMap(),k=d+"_"+m+"_"+i;
+  if(o)mp[k]=o;else delete mp[k];
+  const raw=JSON.stringify(mp);localStorage.setItem(stKey(),raw);_stRaw=raw;
+  pushStatusToCloud(k,o);
+}
+function pushStatusToCloud(k,o){
+  if(!syncDocRef||applyingRemote||profile!=="main")return;
+  const fp=new firebase.firestore.FieldPath(stField(),k);
+  syncDocRef.update(fp,o?o:firebase.firestore.FieldValue.delete()).catch(()=>{if(o)syncDocRef.set({[stField()]:{[k]:o}},{merge:true}).catch(()=>{});});
+}
+function cov(d,m,i){return get(d,m,i)||!!stat(d,m,i);}
+function mealNutri(d,m,i,t){
+  const s=stat(d,m,i);
+  if(s)return {c:s.t==="out"?(s.c||0):0,p:s.t==="out"?(s.p||0):0,any:true};
+  if(get(d,m,i)){const e=estimate(t);return {c:e.c,p:e.p,any:true};}
+  return {c:0,p:0,any:false};
+}
+function dayTarget(d,m){
+  const T=getTarget();
+  return (isVrat(d,m)||[0,1,2].some(i=>{const x=stat(d,m,i);return x&&x.t==="vrat";}))?{c:T.vc,p:T.vp,vrat:true}:T;
+}
+const OUT_PRESETS=[["गुजराती थाली",750,20],["पिज़्ज़ा (2 स्लाइस)",550,22],["समोसा/कचौरी (1)",260,5],["बिरयानी/पुलाव प्लेट",600,14],["मसाला डोसा",350,8],["पाव भाजी (2 पाव)",600,14],["चाट/पानीपूरी प्लेट",300,6],["खमन/ढोकला/फाफड़ा प्लेट",350,10],["सैंडविच/बर्गर",420,14],["पनीर सब्जी + 2 रोटी",550,20],["चाइनीज़ नूडल्स/राइस",550,14],["मिठाई (1 पीस)",200,3],["चाय + बिस्किट",150,3]];
+function stBadge(x){return x.t==="out"?`🍽️ बाहर खाया${x.n?" — "+x.n:""} • ~${x.c||0} kcal • ${x.p||0}g`:x.t==="vrat"?"🪔 व्रत / उपवास (0 kcal)":"⏭️ Skip";}
+function fillPreset(){
+  const v=document.getElementById("stPre").value;if(v==="")return;
+  const x=OUT_PRESETS[+v];
+  document.getElementById("stN").value=x[0];document.getElementById("stC").value=x[1];document.getElementById("stP").value=x[2];
+}
+function openStatus(d,m,i){
+  const x=stat(d,m,i),esc=v=>String(v==null?"":v).replace(/"/g,"&quot;");
+  const opts=OUT_PRESETS.map((p,n)=>`<option value="${n}">${p[0]} (~${p[1]} kcal)</option>`).join("");
+  const sv=o=>{if(o&&get(d,m,i))set(d,m,i,false);setStat(d,m,i,o);render();};
+  showModal(`${mealMeta[i].icon} ${mealMeta[i].label} — status`,
+    `<p>चार्ट वाला खाया हो तो बस tick करें। नहीं तो चुनें (streak नहीं टूटेगी):</p>
+     <select id="stPre" onchange="fillPreset()"><option value="">🍽️ बाहर क्या खाया? (चुनें)</option>${opts}</select>
+     <input id="stN" type="text" placeholder="नाम (वैकल्पिक)" value="${esc(x&&x.n)}">
+     <input id="stC" type="number" inputmode="numeric" placeholder="kcal (अंदाज़ा)" value="${x&&x.t==="out"?esc(x.c):""}">
+     <input id="stP" type="number" inputmode="numeric" placeholder="protein g (अंदाज़ा)" value="${x&&x.t==="out"?esc(x.p):""}">`,
+    [{t:"🍽️ बाहर खाया",f:()=>{
+       const c=Number(document.getElementById("stC").value),p=Number(document.getElementById("stP").value)||0;
+       if(!(c>0)){alert("kcal का अंदाज़ा डालें या ऊपर से कोई चीज़ चुनें।");return false;}
+       sv({t:"out",c:Math.min(5000,Math.round(c)),p:Math.min(300,Math.round(p)),n:document.getElementById("stN").value.trim().slice(0,40)});}},
+     {t:"🪔 व्रत/उपवास",f:()=>sv({t:"vrat"})},
+     {t:"⏭️ Skip",f:()=>sv({t:"skip"})},
+     {t:"🧹 हटाएँ",f:()=>sv(null)}]);
+}
+
 // ---------- editable meal text (overrides on top of the default plan) ----------
 let customMeals={};
 try{ customMeals=JSON.parse(localStorage.getItem(cmKey())||"{}"); }catch(e){ customMeals={}; }
@@ -619,6 +678,7 @@ function clearAllLocalData(){
   Object.keys(localStorage).filter(k=>/^diet_(?:y\d+_)?\d+_\d+_\d+$/.test(k)).forEach(k=>localStorage.removeItem(k));
   Object.keys(localStorage).filter(k=>/^diet_log_\d{4}-/.test(k)).forEach(k=>localStorage.removeItem(k));
   localStorage.removeItem("diet_weight_main");
+  Object.keys(localStorage).filter(k=>/^diet_st_(y\d+)?$/.test(k)).forEach(k=>localStorage.removeItem(k));
   if(profile==="main") customMeals={};
   localStorage.setItem(MAINCM,"{}");
 }
@@ -635,6 +695,7 @@ function connectUserSync(uid){
       if(data.logs&&profile==="main") Object.entries(data.logs).forEach(([iso,o])=>localStorage.setItem("diet_log_"+iso,JSON.stringify(o)));
       if(data.target) localStorage.setItem("diet_target",JSON.stringify(data.target));
       if(data.weights&&profile==="main") localStorage.setItem("diet_weight_main",JSON.stringify(data.weights));
+      {const sf=stField();if(data[sf]&&profile==="main")localStorage.setItem(stKey(),JSON.stringify(data[sf]));}
     }else{
       pushFullStateToCloud();
     }
@@ -654,6 +715,7 @@ function pushFullStateToCloud(){
   const payload={ticks,customMeals,logs,updatedAt:Date.now()};
   try{const tg=JSON.parse(localStorage.getItem("diet_target")||"null");if(tg)payload.target=tg;}catch(e){}
   try{const wt=JSON.parse(localStorage.getItem("diet_weight_main")||"{}");if(Object.keys(wt).length)payload.weights=wt;}catch(e){}
+  {const sm=getStatusMap();if(Object.keys(sm).length)payload[stField()]=sm;}
   syncDocRef.set(payload,{merge:true}).catch(()=>{});
 }
 function pushTickToCloud(d,m,i,v){
@@ -772,7 +834,7 @@ function computeStreak(){
   let best=0,cur=0;
   const total=daysInActiveMonth();
   for(let d=1;d<=total;d++){
-    const done=rowFor(d).every((_,i)=>get(d,activeMonth,i));
+    const done=rowFor(d).every((_,i)=>cov(d,activeMonth,i));
     if(done){cur++;best=Math.max(best,cur);}else cur=0;
   }
   return best;
@@ -835,7 +897,7 @@ function renderHeatmap(){
   const selVal=document.getElementById("dayFilter")?document.getElementById("dayFilter").value:"all";
   let html="";
   for(let d=1;d<=total;d++){
-    const c=rowFor(d).filter((_,i)=>get(d,activeMonth,i)).length;
+    const c=rowFor(d).filter((_,i)=>cov(d,activeMonth,i)).length;
     const isToday=activeMonth===todayMonthIdx&&d===todayDate;
     const isSelected=selVal!=="all"&&selVal===String(d);
     html+=`<button type="button" class="heat-cell h${c} ${isToday?'today-cell':''} ${isSelected?'selected-cell':''}" title="दिन ${d} — ${weekdaysHi[weekdayFor(d)]} — ${c}/3" onclick="jumpToDay(${d})">${d}</button>`;
@@ -884,6 +946,7 @@ let lastAction=null; // for Undo — {type:'single',d,m,i,prev} or {type:'bulk',
 
 function toggleMeal(d,m,i,val){
   lastAction={type:"single",d,m,i,prev:!val};
+  if(val&&stat(d,m,i))setStat(d,m,i,null);
   set(d,m,i,val);
   render();
 }
@@ -892,7 +955,7 @@ function markAllDay(e,d,m=activeMonth){
   const allDone=[0,1,2].every(i=>get(d,m,i));
   const newVal=!allDone;
   lastAction={type:"bulk",items:[0,1,2].map(i=>({d,m,i,prev:get(d,m,i)}))};
-  [0,1,2].forEach(i=>set(d,m,i,newVal));
+  [0,1,2].forEach(i=>{if(newVal&&stat(d,m,i))setStat(d,m,i,null);set(d,m,i,newVal);});
   render();
 }
 function undoLast(){
@@ -942,7 +1005,7 @@ function render(){
       matchText=translit.some(t=>t.rom.some(r=>r.includes(q)||q.includes(r))&&row.some(text=>text.includes(t.dev)));
     }
     const dayMatch=showWindow||df==="all"||df===String(d);
-    const completed=row.filter((_,i)=>get(d,m,i)).length;
+    const completed=row.filter((_,i)=>cov(d,m,i)).length;
     const done=completed===3;
     const statusMatch=sf==="all"||(sf==="done"&&done)||(sf==="pending"&&!done);
     if(!matchText||!dayMatch||!statusMatch)continue;
@@ -962,12 +1025,13 @@ function render(){
       </div>
       <div class="day-body">
         ${row.map((text,i)=>{
-          const checked=get(d,m,i);
-          return `<label class="meal-row m${i} ${checked?'checked':''}">
+          const checked=get(d,m,i),sx=stat(d,m,i);
+          return `<label class="meal-row m${i} ${checked?'checked':''} ${sx?'st':''}">
             <input type="checkbox" ${checked?"checked":""} onchange="toggleMeal(${d},${m},${i},this.checked)">
             <span class="meal-icon">${mealMeta[i].icon}</span>
-            <span class="meal-text">${text}<small>${mealMeta[i].label} • ~${estimate(text).c} kcal • ${estimate(text).p}g</small></span>
+            <span class="meal-text">${text}<small>${sx?stBadge(sx):`${mealMeta[i].label} • ~${estimate(text).c} kcal • ${estimate(text).p}g`}</small></span>
             <button type="button" class="edit-meal-btn" onclick="event.preventDefault();event.stopPropagation();editMealPrompt(${d},${m},${i})" title="Meal edit करें">✏️</button>
+            <button type="button" class="edit-meal-btn" onclick="event.preventDefault();event.stopPropagation();openStatus(${d},${m},${i})" title="बाहर खाया / व्रत / skip">🍽️</button>
             <button type="button" class="edit-meal-btn" onclick="event.preventDefault();event.stopPropagation();swapMeal(${d},${m},${i})" title="दूसरा विकल्प">🔀</button>
             ${i===1?`<button type="button" class="edit-meal-btn" onclick="event.preventDefault();event.stopPropagation();swapLD(${d},${m})" title="दोपहर ↔ शाम आपस में बदलें">↔️</button>`:''}
             ${isCustom(d,m,i)?`<button type="button" class="edit-meal-btn" onclick="event.preventDefault();event.stopPropagation();resetMealPrompt(${d},${m},${i})" title="Default नाम वापस">↩️</button>`:''}
@@ -999,7 +1063,7 @@ function renderTable(){
   for(let d=1;d<=dayCount;d++){
     const wd=weekdayFor(d);
     const texts=rowTexts(d,activeMonth);
-    const doneCount=[0,1,2].filter(i=>get(d,activeMonth,i)).length;
+    const doneCount=[0,1,2].filter(i=>cov(d,activeMonth,i)).length;
     const tn=tickedNutri(d,activeMonth,texts);
     html+=`<tr class="${doneCount===3?'row-done':''}">
       <td class="td-day">दिन ${d}<small>${weekdaysHi[wd]}</small>${doneCount?`<small>🔥 ${tn.c} • 💪 ${tn.p}g</small>`:''}</td>
@@ -1061,7 +1125,7 @@ function updateStats(){
   let done=0,total=dayCount*3;
   document.getElementById("totalDays").textContent=dayCount;
   document.getElementById("totalMeals").textContent=total;
-  for(let d=1;d<=dayCount;d++)rowFor(d).forEach((_,i)=>{if(get(d,activeMonth,i))done++});
+  for(let d=1;d<=dayCount;d++)rowFor(d).forEach((_,i)=>{if(cov(d,activeMonth,i))done++});
   const pct=Math.round(done/total*100);
   document.getElementById("completed").textContent=done;
   document.getElementById("pending").textContent=total-done;
@@ -1073,14 +1137,14 @@ function updateStats(){
 function clearAll(){
   if(confirm(`क्या ${months[activeMonth]} महीने की सारी tracking reset करनी है?`)){
     const dayCount=daysInActiveMonth();
-    for(let d=1;d<=dayCount;d++)rowFor(d).forEach((_,i)=>set(d,activeMonth,i,false));
+    for(let d=1;d<=dayCount;d++)rowFor(d).forEach((_,i)=>{set(d,activeMonth,i,false);if(stat(d,activeMonth,i))setStat(d,activeMonth,i,null);});
     render();
   }
 }
 
 // ---------- Backup (export) / Restore (import) — works fully offline, no login needed ----------
 function exportBackup(){
-  const data={app:"diet-30-day-tracker",exportedAt:new Date().toISOString(),ticks:{},customMeals,weights:getWeights(),logs:Object.fromEntries(Object.keys(localStorage).filter(k=>k.startsWith("diet_log_")).map(k=>[k,localStorage.getItem(k)]))};
+  const data={app:"diet-30-day-tracker",exportedAt:new Date().toISOString(),ticks:{},customMeals,weights:getWeights(),status:getStatusMap(),logs:Object.fromEntries(Object.keys(localStorage).filter(k=>k.startsWith("diet_log_")).map(k=>[k,localStorage.getItem(k)]))};
   for(let m=0;m<12;m++)for(let d=1;d<=31;d++)for(let i=0;i<3;i++){
     const v=localStorage.getItem(key(d,m,i));
     if(v!==null) data.ticks[key(d,m,i)]=v;
@@ -1114,6 +1178,7 @@ function handleRestoreFile(evt){
       Object.entries(data.ticks).forEach(([k,v])=>localStorage.setItem(k,v==="1"?"1":"0"));
       if(data.logs)Object.entries(data.logs).forEach(([k,v])=>localStorage.setItem(k,v));
       if(data.weights&&typeof data.weights==="object")localStorage.setItem(wKey(),JSON.stringify(data.weights));
+      if(data.status&&typeof data.status==="object")localStorage.setItem(stKey(),JSON.stringify(data.status));
       if(data.customMeals&&typeof data.customMeals==="object"){
         customMeals=data.customMeals;
         localStorage.setItem(cmKey(),JSON.stringify(customMeals));
@@ -1229,17 +1294,18 @@ function openGrocery(n=7){
 
 // 2) weekly summary
 function openWeekly(){
-  let html="",tot=0,miss=[0,0,0],water=0,wdays=0,nd=0,nc=0,np=0,ok=0;const T=getTarget();
+  let html="",tot=0,miss=[0,0,0],water=0,wdays=0,nd=0,nc=0,np=0,ok=0,other={};
   for(let k=6;k>=0;k--){
     const dt=dateAt(-k),d=dt.getDate(),m=mIdx(dt);
-    const st=[0,1,2].map(i=>get(d,m,i));
-    st.forEach((v,i)=>{if(v)tot++;else miss[i]++;});
+    const st=[0,1,2].map(i=>{const x=stat(d,m,i);return get(d,m,i)?"✅":x?(x.t==="out"?"🍽️":x.t==="vrat"?"🪔":"⏭️"):"❌";});
+    st.forEach((v,i)=>{if(v==="✅")tot++;else if(v==="❌")miss[i]++;else other[v]=(other[v]||0)+1;});
     const l=getLog(dt.getFullYear()+"-"+(dt.getMonth()+1)+"-"+d);if(l.w){water+=l.w;wdays++;}
-    const nu=dayNutri(dt);if(nu.has){nd++;nc+=nu.c;np+=nu.p;if(nu.p>=T.p&&nu.c<=T.c*1.1)ok++;}
-    html+=`<div>${d} ${months[m]} ${weekdaysHiShort[dt.getDay()]}: ${st.map(v=>v?"✅":"❌").join(" ")}</div>`;
+    const nu=dayNutri(dt);if(nu.has){const Td=dayTarget(d,m);nd++;nc+=nu.c;np+=nu.p;if(nu.p>=Td.p&&nu.c<=Td.c*1.1)ok++;}
+    html+=`<div>${d} ${months[m]} ${weekdaysHiShort[dt.getDay()]}: ${st.join(" ")}</div>`;
   }
   const worst=miss.indexOf(Math.max(...miss));
-  showModal("📈 पिछले 7 दिन",`<p>${html}</p><p><b>${tot}/21 meals पूरे (${Math.round(tot/21*100)}%)</b><br>सबसे ज़्यादा छूटा: ${mealMeta[worst].icon} ${mealMeta[worst].label} (${miss[worst]} बार)${wdays?`<br>💧 औसत पानी: ${(water/wdays).toFixed(1)} गिलास/दिन`:""}${nd?`<br>🔥 औसत ${Math.round(nc/nd)} kcal (target ${T.c}) • 💪 ${Math.round(np/nd)} g protein (target ${T.p})<br>🎯 ${ok}/${nd} दिन target पूरा`:""}</p>`,
+  const T=getTarget();
+  showModal("📈 पिछले 7 दिन",`<p>${html}</p><p><b>${tot}/21 meals पूरे (${Math.round(tot/21*100)}%)</b><br>${Object.keys(other).length?`${other["🍽️"]?"🍽️ बाहर "+other["🍽️"]+" • ":""}${other["🪔"]?"🪔 व्रत "+other["🪔"]+" • ":""}${other["⏭️"]?"⏭️ Skip "+other["⏭️"]+" • ":""}<br>`:""}सबसे ज़्यादा छूटा: ${mealMeta[worst].icon} ${mealMeta[worst].label} (${miss[worst]} बार)${wdays?`<br>💧 औसत पानी: ${(water/wdays).toFixed(1)} गिलास/दिन`:""}${nd?`<br>🔥 औसत ${Math.round(nc/nd)} kcal (target ${T.c}) • 💪 ${Math.round(np/nd)} g protein (target ${T.p})<br>🎯 ${ok}/${nd} दिन target पूरा`:""}</p>`,
     [{t:"📤 Share",f:()=>{shareText(`📈 पिछले 7 दिन: ${tot}/21 meals पूरे (${Math.round(tot/21*100)}%)`);return false;}}]);
 }
 
@@ -1285,11 +1351,11 @@ function pushTargetToCloud(t){
   if(!syncDocRef||applyingRemote||profile!=="main")return;
   syncDocRef.set({target:t,updatedAt:Date.now()},{merge:true}).catch(()=>{});
 }
-function getTarget(){try{return Object.assign({c:1800,p:60},JSON.parse(localStorage.getItem("diet_target")||"{}"));}catch(e){return {c:1800,p:60};}}
+function getTarget(){try{return Object.assign({c:1800,p:60,vc:1200,vp:30},JSON.parse(localStorage.getItem("diet_target")||"{}"));}catch(e){return {c:1800,p:60,vc:1200,vp:30};}}
 function dayNutri(dt){
   const d=dt.getDate(),m=mIdx(dt),l=getLog(dt.getFullYear()+"-"+(dt.getMonth()+1)+"-"+d);
   let ac=0,ap=0,any=false;
-  rowTexts(d,m).forEach((t,i)=>{if(get(d,m,i)){const e=estimate(t);ac+=e.c;ap+=e.p;any=true;}});
+  rowTexts(d,m).forEach((t,i)=>{const n=mealNutri(d,m,i,t);ac+=n.c;ap+=n.p;if(n.any)any=true;});
   return {c:l.c!=null?l.c:ac,p:l.p!=null?l.p:ap,ac,ap,l,has:any||l.c!=null||l.p!=null};
 }
 function bumpWater(n){const l=getLog(isoToday());l.w=Math.max(0,Math.min(20,(l.w||0)+n));setLog(isoToday(),l);renderLog();}
@@ -1297,7 +1363,7 @@ function setLogField(f,v){const l=getLog(isoToday());l[f]=v===""?undefined:Numbe
 function renderLog(){
   const el=document.getElementById("logCard");
   if(viewMode==="table"){el.innerHTML="";return;}
-  const n=dayNutri(today),l=n.l,w=l.w||0,T=getTarget();
+  const n=dayNutri(today),l=n.l,w=l.w||0,T=dayTarget(todayDate,todayMonthIdx);
   const bar=(v,t,col)=>`<div style="height:7px;background:var(--line);border-radius:5px;overflow:hidden;margin:3px 0 7px"><div style="height:100%;width:${Math.min(100,Math.round(v/t*100))}%;background:${col}"></div></div>`;
   const over=n.c>T.c*1.1;
   el.innerHTML=`<div class="log-card"><b>💧 आज का पानी: ${w}/8 गिलास</b>
@@ -1310,10 +1376,13 @@ function renderLog(){
 }
 function openTarget(){
   const t=getTarget();
-  showModal("🎯 रोज़ का Target",`<p>अपना kcal और protein target डालें (सिर्फ tracking के लिए)।</p><input id="tgC" type="number" inputmode="numeric" placeholder="kcal" value="${t.c}"><input id="tgP" type="number" inputmode="numeric" placeholder="protein g" value="${t.p}">`,
-    [{t:"Save",f:()=>{const c=+document.getElementById("tgC").value,p=+document.getElementById("tgP").value;
-      if(!(c>0)||!(p>0)){alert("सही संख्या डालें।");return false;}
-      localStorage.setItem("diet_target",JSON.stringify({c,p}));pushTargetToCloud({c,p});renderLog();}}]);
+  showModal("🎯 रोज़ का Target",`<p>अपना kcal और protein target डालें (सिर्फ tracking के लिए)।</p>
+    <input id="tgC" type="number" inputmode="numeric" placeholder="kcal" value="${t.c}"><input id="tgP" type="number" inputmode="numeric" placeholder="protein g" value="${t.p}">
+    <p>🪔 व्रत/उपवास वाले दिन का target:</p>
+    <input id="tgVC" type="number" inputmode="numeric" placeholder="व्रत kcal" value="${t.vc}"><input id="tgVP" type="number" inputmode="numeric" placeholder="व्रत protein g" value="${t.vp}">`,
+    [{t:"Save",f:()=>{const g=id=>+document.getElementById(id).value;const c=g("tgC"),p=g("tgP"),vc=g("tgVC"),vp=g("tgVP");
+      if(!(c>0)||!(p>0)||!(vc>0)||!(vp>0)){alert("सही संख्या डालें।");return false;}
+      const o={c,p,vc,vp};localStorage.setItem("diet_target",JSON.stringify(o));pushTargetToCloud(o);renderLog();}}]);
 }
 
 // ---------- ⚙️ menu ----------
@@ -1566,7 +1635,7 @@ function planWeek(){
     const dt=new Date(today.getFullYear(),today.getMonth(),today.getDate()+k),d=dt.getDate(),m=mIdx(dt);
     if(isVrat(d,m))continue;
     for(let i=0;i<3;i++){
-      if(get(d,m,i))continue;
+      if(cov(d,m,i))continue;
       pickerCtx=buildCtx(d,m,i);pickerCtx.tab=i;
       const r=pickerRank(pickerPool(i));
       const best=r.find(x=>x.grp===0)||r.find(x=>x.grp===1);
