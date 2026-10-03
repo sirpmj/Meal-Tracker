@@ -250,6 +250,13 @@ button:active{transform:scale(.97)}
   .nbar{height:11px}
   .log-row input{font-size:13px;padding:8px 10px}
 }
+.now-card{background:var(--card);border:1px solid var(--line);border-left:5px solid var(--accent);border-radius:13px;padding:12px 14px;margin-bottom:10px;box-shadow:var(--shadow)}
+.now-card.done{border-left-color:var(--primary)}
+.now-top{display:flex;justify-content:space-between;gap:8px;font-size:12px;color:var(--muted);font-weight:600}
+.now-name{font-size:17px;font-weight:700;margin:6px 0 8px;line-height:1.35}
+.now-tip{font-size:12.5px;margin:0 0 8px;color:var(--pending-accent);font-weight:600}
+.log-note-in{width:100%;margin-top:6px;border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:var(--bg);color:var(--ink);font-size:12.5px}
+@media(min-width:760px){.now-card{padding:16px 20px}.now-name{font-size:20px}}
 </style>
 </head>
 <body>
@@ -345,6 +352,7 @@ button:active{transform:scale(.97)}
     <div class="heatmap" id="heatmap"></div>
   </section>
 
+  <div id="nowCard"></div>
   <div id="logCard"></div>
   <div class="day-list" id="dayList"></div>
 
@@ -596,7 +604,7 @@ function fillPreset(){
 function openStatus(d,m,i){
   const x=stat(d,m,i),esc=v=>String(v==null?"":v).replace(/"/g,"&quot;");
   const opts=OUT_PRESETS.map((p,n)=>`<option value="${n}">${p[0]} (~${p[1]} kcal)</option>`).join("");
-  const sv=o=>{if(o&&get(d,m,i))set(d,m,i,false);setStat(d,m,i,o);render();};
+  const sv=o=>{if(o&&get(d,m,i))set(d,m,i,false);setStat(d,m,i,o);render();if(o)celebrate(d,m);};
   showModal(`${mealMeta[i].icon} ${mealMeta[i].label} — status`,
     `<p>चार्ट वाला खाया हो तो बस tick करें। नहीं तो चुनें (streak नहीं टूटेगी):</p>
      <select id="stPre" onchange="fillPreset()"><option value="">🍽️ बाहर क्या खाया? (चुनें)</option>${opts}</select>
@@ -970,6 +978,7 @@ function toggleMeal(d,m,i,val){
   if(val&&stat(d,m,i))setStat(d,m,i,null);
   set(d,m,i,val);
   render();
+  if(val)celebrate(d,m);
 }
 function markAllDay(e,d,m=activeMonth){
   e.stopPropagation();
@@ -978,6 +987,7 @@ function markAllDay(e,d,m=activeMonth){
   lastAction={type:"bulk",items:[0,1,2].map(i=>({d,m,i,prev:get(d,m,i)}))};
   [0,1,2].forEach(i=>{if(newVal&&stat(d,m,i))setStat(d,m,i,null);set(d,m,i,newVal);});
   render();
+  if(newVal)celebrate(d,m);
 }
 function undoLast(){
   if(!lastAction){alert("अभी undo करने के लिए कुछ नहीं है।");return;}
@@ -1316,18 +1326,21 @@ function openGrocery(n=7){
 
 // 2) weekly summary
 function openWeekly(){
-  let html="",tot=0,miss=[0,0,0],water=0,wdays=0,nd=0,nc=0,np=0,ok=0,other={};
+  let html="",tot=0,miss=[0,0,0],water=0,wdays=0,nd=0,nc=0,np=0,ok=0,other={},bars=[];
   for(let k=6;k>=0;k--){
     const dt=dateAt(-k),d=dt.getDate(),m=mIdx(dt);
     const st=[0,1,2].map(i=>{const x=stat(d,m,i);return get(d,m,i)?"✅":x?(x.t==="out"?"🍽️":x.t==="vrat"?"🪔":"⏭️"):"❌";});
     st.forEach((v,i)=>{if(v==="✅")tot++;else if(v==="❌")miss[i]++;else other[v]=(other[v]||0)+1;});
     const l=getLog(dt.getFullYear()+"-"+(dt.getMonth()+1)+"-"+d);if(l.w){water+=l.w;wdays++;}
-    const nu=dayNutri(dt);if(nu.has){const Td=dayTarget(d,m);nd++;nc+=nu.c;np+=nu.p;if(nu.p>=Td.p&&nu.c<=Td.c*1.1)ok++;}
-    html+=`<div>${d} ${months[m]} ${weekdaysHiShort[dt.getDay()]}: ${st.join(" ")}</div>`;
+    const nu=dayNutri(dt);const Td=dayTarget(d,m);bars.push([weekdaysHiShort[dt.getDay()],nu.has?nu.c:0,Td.c]);
+    if(nu.has){nd++;nc+=nu.c;np+=nu.p;if(nu.p>=Td.p&&nu.c<=Td.c*1.1)ok++;}
+    html+=`<div>${d} ${months[m]} ${weekdaysHiShort[dt.getDay()]}: ${st.join(" ")}${l.n?" 📝 "+escH(l.n):""}</div>`;
   }
+  const mxv=Math.max(1,...bars.map(b=>Math.max(b[1],b[2])));
+  const chart=`<svg viewBox="0 0 300 92" style="width:100%;height:auto;margin:4px 0 8px">${bars.map((b,ix)=>{const x=8+ix*41,h=Math.round(b[1]/mxv*60),ty=Math.round(b[2]/mxv*60);return `<rect x="${x}" y="${70-h}" width="26" height="${Math.max(h,2)}" rx="4" fill="${b[1]>b[2]*1.1?'#C0392B':'var(--primary)'}" opacity="${b[1]?1:.18}"/><line x1="${x-3}" x2="${x+29}" y1="${70-ty}" y2="${70-ty}" stroke="var(--accent)" stroke-dasharray="3 2"/><text x="${x+13}" y="85" font-size="9" text-anchor="middle" fill="var(--muted)">${b[0]}</text>`;}).join("")}</svg><div style="font-size:10.5px;color:var(--muted);margin-bottom:6px">बार = उस दिन की kcal • पीली लाइन = target</div>`;
   const worst=miss.indexOf(Math.max(...miss));
   const T=getTarget();
-  showModal("📈 पिछले 7 दिन",`<p>${html}</p><p><b>${tot}/21 meals पूरे (${Math.round(tot/21*100)}%)</b><br>${Object.keys(other).length?`${other["🍽️"]?"🍽️ बाहर "+other["🍽️"]+" • ":""}${other["🪔"]?"🪔 व्रत "+other["🪔"]+" • ":""}${other["⏭️"]?"⏭️ Skip "+other["⏭️"]+" • ":""}<br>`:""}सबसे ज़्यादा छूटा: ${mealMeta[worst].icon} ${mealMeta[worst].label} (${miss[worst]} बार)${wdays?`<br>💧 औसत पानी: ${(water/wdays).toFixed(1)} गिलास/दिन`:""}${nd?`<br>🔥 औसत ${Math.round(nc/nd)} kcal (target ${T.c}) • 💪 ${Math.round(np/nd)} g protein (target ${T.p})<br>🎯 ${ok}/${nd} दिन target पूरा`:""}</p>`,
+  showModal("📈 पिछले 7 दिन",`${chart}<p>${html}</p><p><b>${tot}/21 meals पूरे (${Math.round(tot/21*100)}%)</b><br>${Object.keys(other).length?`${other["🍽️"]?"🍽️ बाहर "+other["🍽️"]+" • ":""}${other["🪔"]?"🪔 व्रत "+other["🪔"]+" • ":""}${other["⏭️"]?"⏭️ Skip "+other["⏭️"]+" • ":""}<br>`:""}सबसे ज़्यादा छूटा: ${mealMeta[worst].icon} ${mealMeta[worst].label} (${miss[worst]} बार)${wdays?`<br>💧 औसत पानी: ${(water/wdays).toFixed(1)} गिलास/दिन`:""}${nd?`<br>🔥 औसत ${Math.round(nc/nd)} kcal (target ${T.c}) • 💪 ${Math.round(np/nd)} g protein (target ${T.p})<br>🎯 ${ok}/${nd} दिन target पूरा`:""}</p>`,
     [{t:"📤 Share",f:()=>{shareText(`📈 पिछले 7 दिन: ${tot}/21 meals पूरे (${Math.round(tot/21*100)}%)`);return false;}}]);
 }
 
@@ -1385,7 +1398,7 @@ function setLogField(f,v){const l=getLog(isoToday());l[f]=v===""?undefined:Numbe
 function setWater(n){const l=getLog(isoToday());l.w=((l.w||0)===n)?n-1:n;setLog(isoToday(),l);renderLog();}
 function renderLog(){
   const el=document.getElementById("logCard");
-  if(viewMode==="table"){el.innerHTML="";return;}
+  if(viewMode==="table"){el.innerHTML="";renderNow();return;}
   const n=dayNutri(today),l=n.l,w=l.w||0,T=dayTarget(todayDate,todayMonthIdx);
   const pc=Math.round(n.c/T.c*100),pp=Math.round(n.p/T.p*100),over=n.c>T.c*1.1;
   const bar=(v,t,col)=>`<div class="nbar"><div style="width:${Math.min(100,Math.round(v/t*100))}%;background:${col}"></div></div>`;
@@ -1401,7 +1414,9 @@ function renderLog(){
       <div class="log-note">${l.c!=null||l.p!=null?"✍️ आपके डाले हुए आंकड़े":"tick / status किए meals से अंदाज़ा"}</div>
       <div class="log-row"><input type="number" inputmode="numeric" placeholder="kcal खुद डालें (अभी ${n.ac})" value="${l.c??""}" onchange="setLogField('c',this.value)">
       <input type="number" inputmode="numeric" placeholder="protein g (अभी ${n.ap})" value="${l.p??""}" onchange="setLogField('p',this.value)"></div>
+      <input class="log-note-in" type="text" maxlength="120" placeholder="📝 आज का note (जैसे: भूख कम थी)" value="${escH(l.n||"").replace(/"/g,"&quot;")}" onchange="setLogNote(this.value)">
     </div></div></div>`;
+  renderNow();
 }
 function openTarget(){
   const t=getTarget();
@@ -1530,6 +1545,42 @@ function openReport(){
     [{t:"📤 Share",f:()=>{shareText("🍱 Diet Report\n"+lines.join("\n"));return false;}}]);
 }
 
+// ---------- aaj ka agla meal (hero card), din ka note, badhai, paani ki yaad ----------
+function escH(v){return String(v).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+function setLogNote(v){const l=getLog(isoToday());v=v.trim();if(v)l.n=v.slice(0,120);else delete l.n;setLog(isoToday(),l);}
+function celebrate(d,m){
+  if(![0,1,2].every(i=>cov(d,m,i)))return;
+  const k="diet_cel_"+profile+"_"+d+"_"+m;
+  if(localStorage.getItem(k)===String(baseYear))return;
+  localStorage.setItem(k,String(baseYear));
+  toast("🎉 दिन "+d+" पूरा! शाबाश — "+computeStreak()+" दिन की streak 🔥",null,null,6000);
+}
+function renderNow(){
+  const el=document.getElementById("nowCard");if(!el)return;
+  if(viewMode==="table"){el.innerHTML="";return;}
+  const d=todayDate,m=todayMonthIdx,row=rowTexts(d,m),h=new Date().getHours(),cur=h<11?0:h<16?1:2;
+  const later=[0,1,2].filter(x=>x>=cur&&!cov(d,m,x)),earlier=[0,1,2].filter(x=>x<cur&&!cov(d,m,x));
+  const n=dayNutri(today),T=dayTarget(d,m),remP=T.p-n.p;
+  let tip="";
+  if(n.c>T.c*1.1)tip="⚠️ आज kcal target से ज़्यादा हो गई — अगला meal हल्का रखें।";
+  else if(n.has&&remP>15)tip=`💪 अभी ~${Math.round(remP)} g protein बाकी है — 🔀 में protein वाले विकल्प ऊपर आएँगे।`;
+  else if(n.has&&n.p>=T.p)tip="✅ आज का protein target पूरा!";
+  const k=later.length?later[0]:(earlier.length?earlier[0]:-1);
+  if(k<0){el.innerHTML=`<div class="now-card done"><div class="now-name">🎉 आज के तीनों meals हो गए</div>${tip?`<div class="now-tip">${tip}</div>`:""}</div>`;return;}
+  const t=row[k],e=estimate(t);
+  el.innerHTML=`<div class="now-card"><div class="now-top"><span>${later.length?"अगला":"छूटा हुआ"} • ${mealMeta[k].icon} ${mealMeta[k].label}</span><span>~${e.c} kcal • ${e.p}g</span></div>
+    <div class="now-name">${escH(t)}</div>${tip?`<div class="now-tip">${tip}</div>`:""}
+    <div class="log-btns"><button type="button" onclick="toggleMeal(${d},${m},${k},true)">✅ खा लिया</button><button type="button" class="secondary" onclick="openStatus(${d},${m},${k})">🍽️ बाहर/व्रत</button><button type="button" class="secondary" onclick="swapMeal(${d},${m},${k})">🔀 बदलें</button></div></div>`;
+}
+function waterNudge(){
+  if(document.hidden||!getRules().water)return;
+  const h=new Date().getHours();if(h<9||h>21)return;
+  const w=getLog(isoToday()).w||0,exp=Math.min(8,Math.floor((h-8)/1.5));
+  if(w>=exp-1)return;
+  toast(`💧 अब तक ${w} गिलास — थोड़ा पानी पी लें`,"+1 गिलास",()=>bumpWater(1),12000);
+}
+setInterval(waterNudge,50*60*1000);
+
 // 5) meal swap — aas-paas ke 3 din me jo nahi hai, aisa vikalp
 // default plan me koi bhi same item same slot me itne din se pehle repeat nahi hota (≈9) — wahi gap maintain karte hain
 const MIN_GAP=(()=>{let g=99;for(let t=0;t<3;t++){const p={};meals.forEach((r,ix)=>{(p[r[t]]=p[r[t]]||[]).push(ix);});Object.values(p).forEach(a=>{for(let k=0;k<a.length;k++){const nx=k+1<a.length?a[k+1]:a[0]+30;g=Math.min(g,nx-a[k]);}});}return g===99?7:Math.min(g,10);})();
@@ -1551,7 +1602,7 @@ function swapLD(d,m){
 }
 
 // ---------- 🎛️ niyam ----------
-function getRules(){try{return Object.assign({gap:7,strict:false,heavy:true,light:true,prot:true},JSON.parse(localStorage.getItem("diet_rules")||"{}"));}catch(e){return {gap:7,strict:false,heavy:true,light:true,prot:true};}}
+function getRules(){try{return Object.assign({gap:7,strict:false,heavy:true,light:true,prot:true,water:true},JSON.parse(localStorage.getItem("diet_rules")||"{}"));}catch(e){return {gap:7,strict:false,heavy:true,light:true,prot:true,water:true};}}
 function openRules(){
   const r=getRules();
   const sel=(id,v,o)=>`<select id="${id}">${o.map(x=>`<option value="${x[0]}" ${String(x[0])===String(v)?"selected":""}>${x[1]}</option>`).join("")}</select>`;
@@ -1562,10 +1613,11 @@ function openRules(){
      <p>दिन में एक ही heavy meal:</p>${sel("rHeavy",r.heavy,oo)}
      <p>शाम का भोजन हल्का (≤380 kcal):</p>${sel("rLight",r.light,oo)}
      <p>रोज़ एक meal में ≥${P_MIN} g protein:</p>${sel("rProt",r.prot,oo)}
+     <p>💧 पानी पीने की याद (app खुला हो तब):</p>${sel("rWater",r.water,oo)}
      <p>🚫 इस member के लिए बचने वाली चीज़ें (comma से अलग):</p><input id="rAvoid" type="text" placeholder="जैसे: प्याज़, लहसुन, तीखा" value="${getAvoid().join(", ")}">`,
     [{t:"Save",f:()=>{
       const g=id=>document.getElementById(id).value;
-      const o={gap:+g("rGap"),strict:g("rStrict")==="true",heavy:g("rHeavy")==="true",light:g("rLight")==="true",prot:g("rProt")==="true"};
+      const o={gap:+g("rGap"),strict:g("rStrict")==="true",heavy:g("rHeavy")==="true",light:g("rLight")==="true",prot:g("rProt")==="true",water:g("rWater")==="true"};
       localStorage.setItem("diet_rules",JSON.stringify(o));pushMisc("rules",o);
       localStorage.setItem(avKey(),JSON.stringify(g("rAvoid").split(",").map(x=>x.trim()).filter(Boolean)));
     }}]);
