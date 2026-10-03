@@ -227,8 +227,8 @@ button:active{transform:scale(.97)}
 #pickList .pick-item small{color:var(--muted);font-size:10px;margin-left:4px}
 #pickList .pick-item:active{background:var(--done-bg)}
 #menuPanel{margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
-.pick-tabs{display:flex;gap:5px;margin-bottom:8px}
-.pick-tab{flex:1;padding:6px 2px;font-size:11.5px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-weight:600}
+.pick-tabs{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:8px}
+.pick-tab{flex:1 1 30%;padding:6px 2px;font-size:11.5px;border-radius:9px;border:1px solid var(--line);background:var(--bg);color:var(--ink);font-weight:600}
 .pick-tab.on{background:var(--primary);color:#fff;border-color:var(--primary)}
 .pick-row{display:flex;gap:5px;margin-bottom:5px;align-items:stretch}
 #pickList .pick-row .pick-item{width:auto;flex:1;margin-bottom:0}
@@ -300,6 +300,11 @@ button:active{transform:scale(.97)}
         <button class="secondary" onclick="exportBackup()">💾 Backup</button>
         <button class="secondary" onclick="triggerRestoreFile()">📥 Restore</button>
         <button class="secondary" id="toggleAllBtn" onclick="toggleAll()">सभी बंद करें</button>
+      </div>
+      <div class="controls-row">
+        <button class="secondary" onclick="openRules()">🎛️ नियम</button>
+        <button class="secondary" onclick="openVrat()">🪔 व्रत दिन</button>
+        <button class="secondary" onclick="planWeek()">✨ Best हफ़्ता</button>
       </div>
       <div class="controls-row">
         <select id="profileSel"></select>
@@ -439,6 +444,7 @@ function tickedNutri(d,m,row){
   return {c,p};
 }
 function estimate(text){
+  if(EST_MAP[text])return {c:EST_MAP[text][0],p:EST_MAP[text][1]};
   let c=0,p=0;
   String(text).replace(/\(.*?\)/g,"").split("+").forEach(part=>{
     part=part.split("/")[0].trim();if(!part)return;
@@ -447,6 +453,26 @@ function estimate(text){
   });
   return {c,p};
 }
+
+// ---- chart ke bahar: high-protein / high-kcal veg healthy options  [naam, kcal, protein g] ----
+const EXTRA=[
+ [["पनीर भुर्जी + 1 रोटी",330,19],["बेसन-पनीर स्टफ्ड चिल्ला + दही",340,19],["ओट्स + दूध + मेवे",350,14],["मूंग दाल चिल्ला + पुदीना चटनी",250,13],["पीनट बटर टोस्ट + दूध",380,17],["दही + फल + मेवे",270,12],["सोया पोहा + दही",330,16],["रागी डोसा + सांभर",260,8],["पनीर सैंडविच (ब्राउन ब्रेड)",320,16],["मूंग दाल इडली + सांभर",220,11]],
+ [["सोया चंक्स सब्जी + 2 रोटी",400,25],["पालक पनीर + 2 रोटी + सलाद",430,21],["मटर पनीर + 2 रोटी",450,20],["राजमा + ब्राउन राइस + सलाद",420,17],["छोले + 2 रोटी + रायता",450,18],["चना मसाला + 2 रोटी + सलाद",420,17],["दाल तड़का + ब्राउन राइस + सलाद",400,15],["मूंग दाल खिचड़ी + घी + दही",420,16],["टोफू भुर्जी + 2 रोटी",380,22],["सोया पुलाव + रायता",400,18]],
+ [["पनीर टिक्का + मूंग दाल सूप",330,24],["पनीर भुर्जी + 1 रोटी + सलाद",330,19],["स्प्राउट्स सलाद + दाल सूप",260,15],["मूंग दाल चिल्ला + दही",280,15],["टोफू स्टर-फ्राई सब्जी + 1 रोटी",300,19],["दलिया खिचड़ी + दही",350,13],["मिक्स दाल + 1 रोटी + सलाद",320,16],["सोया चंक्स सूप + सलाद",240,18],["चना सलाद + छाछ",280,15],["पनीर सब्जी + 1 रोटी",360,17]]
+];
+// ---- व्रत के विकल्प ----
+const VRAT=[
+ [["साबूदाना खिचड़ी + दही",380,7],["फलाहारी चिवड़ा (मूंगफली) + दूध",360,12],["केला + मखाना खीर",300,8],["राजगिरा पराठा + दही",320,9],["फल + दूध + मेवे",330,11]],
+ [["कुट्टू की रोटी + आलू सब्जी + दही",430,11],["समा चावल + दही + आलू सब्जी",400,9],["सिंघाड़ा आटा पूरी + आलू सब्जी",470,8],["पनीर सब्जी (व्रत) + कुट्टू रोटी",450,17],["साबूदाना वड़ा + दही",420,8]],
+ [["मखाना + दूध",250,9],["फल + दही",230,8],["समा खिचड़ी + दही",350,9],["लौकी की सब्जी + कुट्टू रोटी",330,9],["पनीर टिक्का (व्रत) + फल",330,18]]
+];
+const EST_MAP={};[].concat(...EXTRA,...VRAT).forEach(x=>{EST_MAP[x[0]]=[x[1],x[2]];});
+// ---- mukhya cheez ke groups (inka gap alag se gina jata hai; dal jaisi roz ki cheez nahi) ----
+const GROUPS=[["आलू"],["पनीर","टोफू"],["राजमा","छोले","चना","मटकी","कल्थी","चवली","सोया"],["खिचड़ी"],["पराठा"],["चावल","पुलाव","समा"],["पोहा","चिवड़ा"],["उपमा"],["डोसा","इडली","उत्तपम","अपम"],["चिल्ला"],["कढ़ी"],["बाटी"],["थेपला","मुठिया"],["सैंडविच","पास्ता","टोस्ट"],["साबूदाना","साबुदाना"],["स्प्राउट्स"],["ओट्स","दलिया"],["मखाना"],["कुट्टू","राजगिरा","सिंघाड़ा"]];
+function groupsOf(t){const r=[];GROUPS.forEach((g,i)=>{if(g.some(k=>t.includes(k)))r.push(i);});return r;}
+const HEAVY_KW=["पराठा","बाटी","पूरी","बिरयानी","पास्ता","साबुदाना वड़ा","साबूदाना वड़ा"];
+function isHeavy(t){return HEAVY_KW.some(k=>t.includes(k))||estimate(t).c>=450;}
+const P_MIN=12;
 
 let activeMonth=0;
 let allOpen=true;
@@ -1379,25 +1405,80 @@ function swapLD(d,m){
   if(t[1]===t[2]){alert("दोपहर और शाम एक ही हैं।");return;}
   saveCustomMeal(d,m,1,t[2]);saveCustomMeal(d,m,2,t[1]);
 }
+
+// ---------- 🎛️ niyam ----------
+function getRules(){try{return Object.assign({gap:7,strict:false,heavy:true,light:true,prot:true},JSON.parse(localStorage.getItem("diet_rules")||"{}"));}catch(e){return {gap:7,strict:false,heavy:true,light:true,prot:true};}}
+function openRules(){
+  const r=getRules();
+  const sel=(id,v,o)=>`<select id="${id}">${o.map(x=>`<option value="${x[0]}" ${String(x[0])===String(v)?"selected":""}>${x[1]}</option>`).join("")}</select>`;
+  const oo=[[true,"चालू"],[false,"बंद"]];
+  showModal("🎛️ खाने के नियम",
+    `<p>एक ही मुख्य चीज़ (आलू, पनीर, चना-राजमा, पराठा...) का gap:</p>${sel("rGap",r.gap,[[5,"5 दिन"],[7,"7 दिन (हफ़्ते में एक बार)"],[9,"9 दिन"]])}
+     <p>gap के अंदर वाले विकल्प:</p>${sel("rStrict",r.strict,[[false,"नरम — नीचे दिखें, पूछकर लगें"],[true,"सख्त — छिपे रहें"]])}
+     <p>दिन में एक ही heavy meal:</p>${sel("rHeavy",r.heavy,oo)}
+     <p>शाम का भोजन हल्का (≤380 kcal):</p>${sel("rLight",r.light,oo)}
+     <p>रोज़ एक meal में ≥${P_MIN} g protein:</p>${sel("rProt",r.prot,oo)}`,
+    [{t:"Save",f:()=>{
+      const g=id=>document.getElementById(id).value;
+      localStorage.setItem("diet_rules",JSON.stringify({gap:+g("rGap"),strict:g("rStrict")==="true",heavy:g("rHeavy")==="true",light:g("rLight")==="true",prot:g("rProt")==="true"}));
+    }}]);
+}
+
+// ---------- 🪔 vrat ----------
+function vKey(){return "diet_vrat_"+profile;}
+function getVrat(){try{return JSON.parse(localStorage.getItem(vKey())||"{}");}catch(e){return {};}}
+function isVrat(d,m){return !!getVrat()[d+"_"+m];}
+function setVratDay(d,m,on){
+  const v=getVrat();
+  if(on){v[d+"_"+m]=1;for(let i=0;i<3;i++)saveCustomMeal(d,m,i,VRAT[i][(d+m+i)%VRAT[i].length][0]);}
+  else{delete v[d+"_"+m];for(let i=0;i<3;i++)clearCustom(d,m,i);}
+  localStorage.setItem(vKey(),JSON.stringify(v));finishReset();
+}
+function openVrat(){
+  showModal("🪔 व्रत का दिन",`<p>तारीख चुनें। उस दिन के तीनों meals व्रत वाले विकल्प से बदल जाएँगे (🔀 में 🪔 व्रत tab भी मिलेगा)।</p>
+    <input id="vDate" type="date" value="${inputFromIso(isoToday())}">
+    <select id="vScope"><option value="one">सिर्फ यह दिन</option><option value="wd">इस महीने के सभी वही वार (जैसे सारे सोमवार)</option></select>`,
+    [{t:"🪔 व्रत लगाएँ",f:()=>vratApply(true)},{t:"↩️ व्रत हटाएँ",f:()=>vratApply(false)}]);
+}
+function vratApply(on){
+  const dv=document.getElementById("vDate").value;if(!dv){alert("तारीख चुनें।");return false;}
+  const a=dv.split("-").map(Number),cm=a[1]-1,m=(cm+4)%12,wd=new Date(yearForMonthIdx(m),cm,a[2]).getDay();
+  if(document.getElementById("vScope").value==="one"){setVratDay(a[2],m,on);return;}
+  for(let dd=1;dd<=dimM(m);dd++)if(new Date(yearForMonthIdx(m),cm,dd).getDay()===wd)setVratDay(dd,m,on);
+}
+
+// ---------- picker: gap + niyam ----------
+function buildCtx(d,m,i){
+  const R=getRules(),cur=rowTexts(d,m),dist={},gd={},main=new Set(cur.map(mainKey));
+  const mk=(o,k,v)=>{if(o[k]===undefined||Math.abs(v)<Math.abs(o[k]))o[k]=v;};
+  cur.forEach((t,j)=>{if(j!==i){mk(dist,t,0);groupsOf(t).forEach(g=>mk(gd,g,0));}});
+  const W=Math.max(MIN_GAP,R.gap);
+  for(let k=-W;k<=W;k++){
+    if(!k)continue;const r=rowAtOffset(d,m,k);if(!r)continue;
+    if(Math.abs(k)<=MIN_GAP)mk(dist,r[i],k);
+    if(Math.abs(k)<=R.gap)groupsOf(r[i]).forEach(g=>mk(gd,g,k));
+    if(Math.abs(k)<=1)r.forEach((t,j)=>{if(j!==i){mk(dist,t,k);groupsOf(t).forEach(g=>mk(gd,g,k));}});
+    if(Math.abs(k)<=3)main.add(mainKey(r[i]));
+  }
+  delete dist[cur[i]];
+  return {d,m,i,R,cur:cur[i],dist,gd,main,showNear:false,tab:isVrat(d,m)?"v":i,
+    otherHeavy:cur.some((t,j)=>j!==i&&isHeavy(t)),noProt:!cur.some((t,j)=>j!==i&&estimate(t).p>=P_MIN)};
+}
+function blockInfo(t){
+  const c=pickerCtx;
+  if(c.dist[t]!==undefined)return distLabel(c.dist[t]);
+  if(c.tab!=="v")for(const g of groupsOf(t))if(c.gd[g]!==undefined)return GROUPS[g][0]+" "+distLabel(c.gd[g]);
+  return null;
+}
 function applyPick(t){
-  const c=pickerCtx,k=c.dist[t];
-  if(k!==undefined&&!confirm(`"${t}" ${distLabel(k)} पहले से है (कम से कम ${MIN_GAP} दिन का gap रखना बेहतर है)। फिर भी लगाएँ?`))return false;
+  const c=pickerCtx,b=blockInfo(t);
+  if(b&&!confirm(`"${t}" — ${b} पहले से है (gap रखना बेहतर है)। फिर भी लगाएँ?`))return false;
   document.querySelectorAll(".sync-modal-backdrop").forEach(e=>e.remove());
   saveCustomMeal(c.d,c.m,c.i,t);
 }
 function swapMeal(d,m,i){
-  const cur=rowTexts(d,m),dist={},main=new Set(cur.map(mainKey));
-  const mark=(t,k)=>{if(dist[t]===undefined||Math.abs(k)<Math.abs(dist[t]))dist[t]=k;};
-  cur.forEach((t,j)=>{if(j!==i)mark(t,0);});
-  for(let k=-MIN_GAP;k<=MIN_GAP;k++){
-    if(!k)continue;const r=rowAtOffset(d,m,k);if(!r)continue;
-    mark(r[i],k);
-    if(Math.abs(k)<=1)r.forEach((t,j)=>{if(j!==i)mark(t,k);});
-    if(Math.abs(k)<=3)main.add(mainKey(r[i]));
-  }
-  delete dist[cur[i]];
-  pickerCtx={d,m,i,tab:i,cur:cur[i],dist,main,showNear:false};
-  const tabs=[[0,"🌅 सुबह"],[1,"☀️ दोपहर"],[2,"🌙 शाम"],["all","सभी"]].map(x=>`<button type="button" class="pick-tab" data-t="${x[0]}" onclick="setPickTab('${x[0]}')">${x[1]}</button>`).join("");
+  pickerCtx=buildCtx(d,m,i);
+  const tabs=[[0,"🌅 सुबह"],[1,"☀️ दोपहर"],[2,"🌙 शाम"],["all","सभी"],["x","✨ नए"],["v","🪔 व्रत"]].map(x=>`<button type="button" class="pick-tab" data-t="${x[0]}" onclick="setPickTab('${x[0]}')">${x[1]}</button>`).join("");
   showModal(`🔀 ${mealMeta[i].icon} ${mealMeta[i].label} बदलें`,
     `<div class="pick-tabs">${tabs}</div>
      <input id="pickQ" type="search" placeholder="🔎 खोजें (poha, dal, आलू...)" oninput="filterPicker()">
@@ -1406,26 +1487,38 @@ function swapMeal(d,m,i){
     [{t:"✅ अपना लगाएँ",f:()=>{const v=document.getElementById("pickCustom").value.trim();if(!v)return false;return applyPick(v);}},
      {t:"🎲 Random",f:()=>{
        const r=pickerRank(pickerPool(pickerCtx.tab)).filter(x=>x.grp<2),top=r.filter(x=>x.grp===0).slice(0,5),p=top.length?top:r;
-       if(!p.length){alert("पास के दिनों से बाहर कोई विकल्प नहीं मिला।");return false;}
+       if(!p.length){alert("नियमों के हिसाब से कोई विकल्प नहीं मिला।");return false;}
        return applyPick(p[Math.floor(Math.random()*p.length)].t);}}]);
   filterPicker();
 }
-function setPickTab(t){pickerCtx.tab=t==="all"?"all":+t;filterPicker();}
+function setPickTab(t){pickerCtx.tab=(t==="all"||t==="x"||t==="v")?t:+t;filterPicker();}
 function pickerPool(tab){
-  let p=[];
-  (tab==="all"?[0,1,2]:[tab]).forEach(t=>{meals.forEach(r=>p.push(r[t]));p.push(day31[t]);});
-  if(tab==="all")p=p.concat(Object.values(customMeals));
-  return [...new Set(p.concat(getFavs()))].filter(t=>t&&t!==pickerCtx.cur);
+  const c=pickerCtx;let p=[];
+  if(tab==="x")p=EXTRA[c.i].map(a=>a[0]);
+  else if(tab==="v")p=VRAT[c.i].map(a=>a[0]);
+  else{
+    (tab==="all"?[0,1,2]:[tab]).forEach(t=>{meals.forEach(r=>p.push(r[t]));p.push(day31[t]);});
+    if(tab==="all")p=p.concat(Object.values(customMeals));
+    p=p.concat(getFavs());
+  }
+  return [...new Set(p)].filter(t=>t&&t!==c.cur);
 }
 function pickerRank(list){
-  const c=pickerCtx,T=getTarget(),tx=rowTexts(c.d,c.m),fav=getFavs();
+  const c=pickerCtx,R=c.R,T=getTarget(),tx=rowTexts(c.d,c.m),fav=getFavs();
   let oc=0,op=0;tx.forEach((t,j)=>{if(j!==c.i){const e=estimate(t);oc+=e.c;op+=e.p;}});
   const wc=Math.max(150,T.c-oc),wp=Math.max(0,T.p-op);
   return list.map(t=>{
-    const e=estimate(t);
-    const score=Math.abs(e.c-wc)/T.c+1.5*Math.max(0,wp-e.p)/T.p-(fav.includes(t)?0.15:0);
-    const grp=c.dist[t]!==undefined?2:(c.main.has(mainKey(t))?1:0);
-    return {t,e,score,grp};
+    const e=estimate(t),why=[],b=blockInfo(t);
+    let score=Math.abs(e.c-wc)/T.c+1.5*Math.max(0,wp-e.p)/T.p-(fav.includes(t)?0.15:0);
+    if(R.prot&&e.p>=P_MIN)score-=c.noProt?0.35:0.1;
+    if(c.main.has(mainKey(t)))why.push("मिलता-जुलता");
+    if(c.tab!=="v"){
+      if(R.heavy&&c.otherHeavy&&isHeavy(t))why.push("आज पहले से heavy meal");
+      if(R.light&&c.i===2&&e.c>380)why.push("शाम के लिए भारी");
+    }
+    if(R.prot&&c.noProt&&e.p<P_MIN)why.push("आज protein कम");
+    const soft=why.filter(x=>x!=="आज protein कम");
+    return {t,e,score,b,why,grp:b?2:(soft.length?1:0)};
   }).sort((a,b)=>a.grp-b.grp||a.score-b.score);
 }
 function pickerMatch(text,q){
@@ -1447,7 +1540,7 @@ function filterPicker(){
     const b=document.createElement("button");b.type="button";b.className="pick-item";
     b.textContent=(best?"✨ ":x.grp===2?"⚠️ ":"")+x.t;
     const sm=document.createElement("small");
-    sm.textContent=`~${x.e.c} kcal • ${x.e.p}g`+(x.grp===2?" • "+distLabel(c.dist[x.t]):x.grp===1?" • मिलता-जुलता":"");
+    sm.textContent=`~${x.e.c} kcal • ${x.e.p}g`+(x.e.p>=15?" • 💪":"")+(x.e.c>=400?" • 🔥":"")+(x.b?" • "+x.b:x.why.length?" • "+x.why.join(", "):"");
     b.appendChild(sm);b.onclick=()=>applyPick(x.t);
     const st=document.createElement("button");st.type="button";st.className="pick-star";
     st.textContent=fav.includes(x.t)?"⭐":"☆";st.onclick=()=>toggleFav(x.t);
@@ -1456,12 +1549,31 @@ function filterPicker(){
   ok.forEach((x,n)=>addRow(x,n===0&&x.grp===0&&!q));
   if(near.length){
     const t=document.createElement("button");t.type="button";t.className="pick-item";t.style.textAlign="center";
-    t.textContent=(c.showNear||q?"▾":"▸")+` ⚠️ ${near.length} विकल्प पास में हैं (${MIN_GAP} दिन के अंदर)`;
-    t.onclick=()=>{c.showNear=!c.showNear;filterPicker();};
-    box.appendChild(t);
-    if(c.showNear||q)near.forEach(x=>addRow(x,false));
+    if(c.R.strict){t.textContent=`🔒 ${near.length} विकल्प gap की वजह से छिपे हैं (🎛️ नियम में बदलें)`;t.disabled=true;box.appendChild(t);}
+    else{
+      t.textContent=(c.showNear||q?"▾":"▸")+` ⚠️ ${near.length} विकल्प gap के अंदर हैं`;
+      t.onclick=()=>{c.showNear=!c.showNear;filterPicker();};box.appendChild(t);
+      if(c.showNear||q)near.forEach(x=>addRow(x,false));
+    }
   }
   if(!list.length)box.innerHTML="<p>कोई विकल्प नहीं मिला — नीचे अपना नाम लिखें।</p>";
+}
+// ---------- ✨ agle 7 din ka best plan ----------
+function planWeek(){
+  if(!confirm("आज से अगले 7 दिन के जो meals tick नहीं हुए, उन्हें gap, नियम और target के हिसाब से best विकल्प से बदलना है? (व्रत वाले दिन छोड़े जाएँगे)"))return;
+  let n=0;
+  for(let k=0;k<7;k++){
+    const dt=new Date(today.getFullYear(),today.getMonth(),today.getDate()+k),d=dt.getDate(),m=mIdx(dt);
+    if(isVrat(d,m))continue;
+    for(let i=0;i<3;i++){
+      if(get(d,m,i))continue;
+      pickerCtx=buildCtx(d,m,i);pickerCtx.tab=i;
+      const r=pickerRank(pickerPool(i));
+      const best=r.find(x=>x.grp===0)||r.find(x=>x.grp===1);
+      if(best){saveCustomMeal(d,m,i,best.t);n++;}
+    }
+  }
+  alert(n+" meals बदले गए। कोई पसंद न आए तो 🔀 से बदल लें।");
 }
 let pickerCtx=null;
 
