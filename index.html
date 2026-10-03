@@ -257,6 +257,29 @@ button:active{transform:scale(.97)}
 .now-tip{font-size:12.5px;margin:0 0 8px;color:var(--pending-accent);font-weight:600}
 .log-note-in{width:100%;margin-top:6px;border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:var(--bg);color:var(--ink);font-size:12.5px}
 @media(min-width:760px){.now-card{padding:16px 20px}.now-name{font-size:20px}}
+.stats{grid-template-columns:repeat(6,1fr);gap:4px;margin:6px 0}
+.stat{padding:4px 2px;border-radius:9px}.stat span{font-size:8.5px}.stat b{font-size:13px;margin-top:0}
+.controls{padding:8px;margin-bottom:8px}
+.controls-row.qrow{grid-template-columns:repeat(6,minmax(0,1fr));gap:4px}
+.qb{display:flex;flex-direction:column;align-items:center;gap:1px;padding:5px 1px!important;font-size:10px!important;line-height:1.15}
+.qb i{font-style:normal;font-size:16px}
+.month-bar{margin-bottom:8px}
+.log-card.cp{padding:7px 10px;font-size:12px;margin-bottom:6px;border-radius:11px}
+.cp-water{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cp-water .glasses{margin:0;font-size:15px;gap:1px;flex:1 1 auto}
+.cp-btns{display:flex;gap:4px}.cp-btns button{padding:3px 11px;font-size:13px;width:auto;min-width:0}
+.cp-nut{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:5px}
+.cp-lab{display:flex;justify-content:space-between;font-size:11.5px;font-weight:600}
+.cp-nut .nbar{height:6px;margin:3px 0 0}
+.cp-more summary{font-size:11px;color:var(--muted);cursor:pointer;margin-top:5px}
+.cp-more .log-row{margin-top:5px}
+.now-card.cp{padding:7px 10px;border-radius:11px;margin-bottom:6px}
+.now-card.cp .now-top{font-size:11px}
+.now-card.cp .now-name{font-size:14px;margin:2px 0 5px;line-height:1.3}
+.now-card.cp .now-tip{font-size:11px;margin:0 0 5px}
+.now-card.cp .log-btns button{padding:5px 6px;font-size:12px}
+.now-card.cp.done .now-name{margin:0;font-size:13px}
+@media(min-width:760px){.log-card.cp{font-size:13px;padding:9px 14px}.cp-water .glasses{font-size:18px}.now-card.cp{padding:9px 14px}.now-card.cp .now-name{font-size:15px}}
 </style>
 </head>
 <body>
@@ -282,7 +305,6 @@ button:active{transform:scale(.97)}
 </header>
 
 <main class="wrap">
-  <div id="prepBanner"></div>
 
   <section class="stats">
     <div class="stat"><span>कुल दिन</span><b id="totalDays">30</b></div>
@@ -304,17 +326,19 @@ button:active{transform:scale(.97)}
       <button class="secondary" onclick="undoLast()">↩️ Undo</button>
       <button onclick="toggleMenu()" id="menuBtn">⚙️ मेनू</button>
     </div>
-    <div class="controls-row four-col">
-      <button class="secondary" onclick="openGrocery()">🛒 सामान</button>
-      <button class="secondary" onclick="openWeekly()">📈 Weekly</button>
-      <button class="secondary" onclick="openWeight()">⚖️ Weight</button>
-      <button class="secondary" onclick="openPastLog()">📝 Log</button>
+    <div class="controls-row qrow">
+      <button class="secondary qb" onclick="openGrocery()"><i>🛒</i>सामान</button>
+      <button class="secondary qb" onclick="openWeekly()"><i>📈</i>Weekly</button>
+      <button class="secondary qb" onclick="openWeight()"><i>⚖️</i>Weight</button>
+      <button class="secondary qb" onclick="openPastLog()"><i>📝</i>Log</button>
+      <button class="secondary qb" onclick="openReport()"><i>📊</i>Report</button>
+      <button class="secondary qb" onclick="openTarget()"><i>🎯</i>Target</button>
     </div>
     <div id="menuPanel" class="hidden">
       <div class="controls-row">
         <button class="secondary" onclick="toggleGrocery()">🔁 दोहराई चीज़ें</button>
-        <button class="secondary" onclick="openTarget()">🎯 Target</button>
         <button class="secondary" onclick="openReminder()">🔔 Reminder</button>
+        <button class="secondary" onclick="shareProgress()">📤 Share</button>
       </div>
       <div class="controls-row">
         <button class="secondary" onclick="openRules()">🎛️ नियम</button>
@@ -322,18 +346,14 @@ button:active{transform:scale(.97)}
         <button class="secondary" onclick="planWeek()">✨ Best हफ़्ता</button>
       </div>
       <div class="controls-row">
-        <button class="secondary" onclick="shareProgress()">📤 Share</button>
         <button class="secondary" onclick="window.print()">🖨️ Print</button>
         <button class="secondary" id="toggleAllBtn" onclick="toggleAll()">सभी बंद करें</button>
+        <button class="secondary" onclick="exportBackup()">💾 Backup</button>
       </div>
       <div class="controls-row">
-        <button class="secondary" onclick="exportBackup()">💾 Backup</button>
         <button class="secondary" onclick="triggerRestoreFile()">📥 Restore</button>
         <button onclick="clearAll()">Reset महीना</button>
-      </div>
-      <div class="controls-row">
         <select id="profileSel"></select>
-        <button class="secondary" onclick="openReport()">📊 महीने का Report</button>
       </div>
     </div>
     <input type="file" id="restoreFileInput" accept="application/json,.json" class="hidden" onchange="handleRestoreFile(event)">
@@ -343,18 +363,19 @@ button:active{transform:scale(.97)}
     <strong>📅 <span id="selectedMonth">Sep</span></strong>
     <div class="months" id="months"></div>
   </section>
-  <div class="legend">💡 डिफ़ॉल्ट में आज, कल और परसों के meals दिखते हैं — "पूरा महीना" दबाकर बाकी दिन भी देखें। Card पर टैप कर के खोलें/बंद करें, meal पूरा होने पर checkbox tick करें।</div>
 
   <div id="groceryPanel" class="hidden" style="background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:14px;padding:10px 14px;margin-bottom:12px;font-size:13px;line-height:1.6;box-shadow:var(--shadow)"></div>
 
-  <section class="heatmap-wrap">
-    <div class="heatmap-title">📊 इस महीने का overview (टैप कर के उस दिन पर जाएं)</div>
-    <div class="heatmap" id="heatmap"></div>
-  </section>
 
   <div id="nowCard"></div>
   <div id="logCard"></div>
   <div class="day-list" id="dayList"></div>
+  <div id="prepBanner"></div>
+  <section class="heatmap-wrap">
+    <div class="heatmap-title">📊 इस महीने का overview (टैप कर के उस दिन पर जाएं)</div>
+    <div class="heatmap" id="heatmap"></div>
+  </section>
+  <div class="legend">💡 डिफ़ॉल्ट में आज, कल और परसों के meals दिखते हैं — "पूरा महीना" दबाकर बाकी दिन भी देखें। Card पर टैप कर के खोलें/बंद करें, meal पूरा होने पर checkbox tick करें।</div>
 
   <section id="tableView" class="hidden">
     <div class="table-toolbar">
@@ -1402,20 +1423,20 @@ function renderLog(){
   const n=dayNutri(today),l=n.l,w=l.w||0,T=dayTarget(todayDate,todayMonthIdx);
   const pc=Math.round(n.c/T.c*100),pp=Math.round(n.p/T.p*100),over=n.c>T.c*1.1;
   const bar=(v,t,col)=>`<div class="nbar"><div style="width:${Math.min(100,Math.round(v/t*100))}%;background:${col}"></div></div>`;
-  el.innerHTML=`<div class="log-card"><div class="log-grid">
-    <div class="log-col">
-      <div class="log-head"><b>💧 आज का पानी</b><span>${w}/8 गिलास</span></div>
-      <div class="glasses">${Array.from({length:8},(_,i)=>`<span class="${i<w?'on':''}" onclick="setWater(${i+1})" title="${i+1} गिलास">💧</span>`).join("")}</div>
-      <div class="log-btns"><button type="button" class="secondary" onclick="bumpWater(-1)">− गिलास</button><button type="button" onclick="bumpWater(1)">+ गिलास</button><button type="button" class="secondary" onclick="openTarget()">🎯 Target</button></div>
+  el.innerHTML=`<div class="log-card cp">
+    <div class="cp-water"><b>💧 ${w}/8</b>
+      <span class="glasses">${Array.from({length:8},(_,i)=>`<span class="${i<w?'on':''}" onclick="setWater(${i+1})" title="${i+1} गिलास">💧</span>`).join("")}</span>
+      <span class="cp-btns"><button type="button" class="secondary" onclick="bumpWater(-1)">−</button><button type="button" onclick="bumpWater(1)">+</button></span></div>
+    <div class="cp-nut">
+      <div><div class="cp-lab"><span>🔥 ${n.c}/${T.c} kcal${over?" ⚠️":""}${T.vrat?" 🪔":""}</span><span>${pc}%</span></div>${bar(n.c,T.c,over?"#C0392B":"var(--accent)")}</div>
+      <div><div class="cp-lab"><span>💪 ${n.p}/${T.p} g${n.p>=T.p?" ✅":""}</span><span>${pp}%</span></div>${bar(n.p,T.p,"var(--primary)")}</div>
     </div>
-    <div class="log-col">
-      <div class="log-head"><b>🔥 ${n.c} / ${T.c} kcal</b><span>${pc}%${over?" ⚠️":""}${T.vrat?" • 🪔 व्रत target":""}</span></div>${bar(n.c,T.c,over?"#C0392B":"var(--accent)")}
-      <div class="log-head"><b>💪 ${n.p} / ${T.p} g protein</b><span>${pp}%${n.p>=T.p?" ✅":""}</span></div>${bar(n.p,T.p,"var(--primary)")}
-      <div class="log-note">${l.c!=null||l.p!=null?"✍️ आपके डाले हुए आंकड़े":"tick / status किए meals से अंदाज़ा"}</div>
-      <div class="log-row"><input type="number" inputmode="numeric" placeholder="kcal खुद डालें (अभी ${n.ac})" value="${l.c??""}" onchange="setLogField('c',this.value)">
+    <details class="cp-more"><summary>✍️ खुद डालें • 📝 note${l.c!=null||l.p!=null||l.n?" •":""}${l.c!=null||l.p!=null?" ✍️":""}${l.n?" 📝":""}</summary>
+      <div class="log-note">${l.c!=null||l.p!=null?"आपके डाले हुए आंकड़े काम में लिए जा रहे हैं":"खाली हो तो tick / status किए meals से अंदाज़ा लिया जाता है"}</div>
+      <div class="log-row"><input type="number" inputmode="numeric" placeholder="kcal (अभी ${n.ac})" value="${l.c??""}" onchange="setLogField('c',this.value)">
       <input type="number" inputmode="numeric" placeholder="protein g (अभी ${n.ap})" value="${l.p??""}" onchange="setLogField('p',this.value)"></div>
       <input class="log-note-in" type="text" maxlength="120" placeholder="📝 आज का note (जैसे: भूख कम थी)" value="${escH(l.n||"").replace(/"/g,"&quot;")}" onchange="setLogNote(this.value)">
-    </div></div></div>`;
+    </details></div>`;
   renderNow();
 }
 function openTarget(){
@@ -1562,13 +1583,13 @@ function renderNow(){
   const later=[0,1,2].filter(x=>x>=cur&&!cov(d,m,x)),earlier=[0,1,2].filter(x=>x<cur&&!cov(d,m,x));
   const n=dayNutri(today),T=dayTarget(d,m),remP=T.p-n.p;
   let tip="";
-  if(n.c>T.c*1.1)tip="⚠️ आज kcal target से ज़्यादा हो गई — अगला meal हल्का रखें।";
-  else if(n.has&&remP>15)tip=`💪 अभी ~${Math.round(remP)} g protein बाकी है — 🔀 में protein वाले विकल्प ऊपर आएँगे।`;
-  else if(n.has&&n.p>=T.p)tip="✅ आज का protein target पूरा!";
+  if(n.c>T.c*1.1)tip="⚠️ kcal target से ज़्यादा — अगला meal हल्का रखें।";
+  else if(n.has&&remP>15)tip=`💪 ~${Math.round(remP)} g protein बाकी — 🔀 में protein वाले विकल्प ऊपर आएँगे।`;
+  else if(n.has&&n.p>=T.p)tip="✅ protein target पूरा!";
   const k=later.length?later[0]:(earlier.length?earlier[0]:-1);
-  if(k<0){el.innerHTML=`<div class="now-card done"><div class="now-name">🎉 आज के तीनों meals हो गए</div>${tip?`<div class="now-tip">${tip}</div>`:""}</div>`;return;}
+  if(k<0){el.innerHTML=`<div class="now-card cp done"><div class="now-name">🎉 आज के तीनों meals हो गए${tip?` <span class="now-tip" style="display:inline"> • ${tip}</span>`:""}</div></div>`;return;}
   const t=row[k],e=estimate(t);
-  el.innerHTML=`<div class="now-card"><div class="now-top"><span>${later.length?"अगला":"छूटा हुआ"} • ${mealMeta[k].icon} ${mealMeta[k].label}</span><span>~${e.c} kcal • ${e.p}g</span></div>
+  el.innerHTML=`<div class="now-card cp"><div class="now-top"><span>${later.length?"अगला":"छूटा"} • ${mealMeta[k].icon} ${mealMeta[k].label}</span><span>~${e.c} kcal • ${e.p}g</span></div>
     <div class="now-name">${escH(t)}</div>${tip?`<div class="now-tip">${tip}</div>`:""}
     <div class="log-btns"><button type="button" onclick="toggleMeal(${d},${m},${k},true)">✅ खा लिया</button><button type="button" class="secondary" onclick="openStatus(${d},${m},${k})">🍽️ बाहर/व्रत</button><button type="button" class="secondary" onclick="swapMeal(${d},${m},${k})">🔀 बदलें</button></div></div>`;
 }
