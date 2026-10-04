@@ -280,6 +280,11 @@ button:active{transform:scale(.97)}
 .now-card.cp .log-btns button{padding:5px 6px;font-size:12px}
 .now-card.cp.done .now-name{margin:0;font-size:13px}
 @media(min-width:760px){.log-card.cp{font-size:13px;padding:9px 14px}.cp-water .glasses{font-size:18px}.now-card.cp{padding:9px 14px}.now-card.cp .now-name{font-size:15px}}
+#memberChips{display:flex;gap:5px;overflow-x:auto;margin-bottom:6px}#memberChips:empty{display:none}
+#memberChips button{flex:0 0 auto;padding:5px 11px!important;font-size:12px!important}
+#syncBtn[data-sync=on]::after{content:"";display:inline-block;width:8px;height:8px;border-radius:50%;background:#2ecc71;margin-left:3px;vertical-align:middle}
+.stats{grid-template-columns:repeat(3,1fr)}
+.stats .stat:nth-child(1),.stats .stat:nth-child(2),.stats .stat:nth-child(4){display:none}
 </style>
 </head>
 <body>
@@ -316,6 +321,7 @@ button:active{transform:scale(.97)}
   </section>
 
   <section class="controls">
+    <div id="memberChips"></div>
     <div class="controls-row four-col">
       <select id="statusFilter">
         <option value="all">सभी Meals</option>
@@ -337,21 +343,20 @@ button:active{transform:scale(.97)}
     <div id="menuPanel" class="hidden">
       <div class="controls-row">
         <button class="secondary" onclick="toggleGrocery()">🔁 दोहराई चीज़ें</button>
-        <button class="secondary" onclick="openReminder()">🔔 Reminder</button>
         <button class="secondary" onclick="shareProgress()">📤 Share</button>
+        <button class="secondary" onclick="window.print()">🖨️ Print</button>
       </div>
       <div class="controls-row">
-        <button class="secondary" onclick="openRules()">🎛️ नियम</button>
-        <button class="secondary" onclick="openVrat()">🪔 व्रत दिन</button>
+        <button class="secondary" onclick="openRules()">🎛️ नियम / सेटिंग</button>
+        <button class="secondary" onclick="openVrat()">🪔 व्रत / एकादशी</button>
         <button class="secondary" onclick="planWeek()">✨ Best हफ़्ता</button>
       </div>
       <div class="controls-row">
-        <button class="secondary" onclick="window.print()">🖨️ Print</button>
         <button class="secondary" id="toggleAllBtn" onclick="toggleAll()">सभी बंद करें</button>
         <button class="secondary" onclick="exportBackup()">💾 Backup</button>
+        <button class="secondary" onclick="triggerRestoreFile()">📥 Restore</button>
       </div>
       <div class="controls-row">
-        <button class="secondary" onclick="triggerRestoreFile()">📥 Restore</button>
         <button onclick="clearAll()">Reset महीना</button>
         <select id="profileSel"></select>
       </div>
@@ -492,6 +497,7 @@ function tickedNutri(d,m,row){
 }
 function estimate(text){
   if(EST_MAP[text])return {c:EST_MAP[text][0],p:EST_MAP[text][1]};
+  {const my=getMyDish()[text];if(my)return {c:my[0],p:my[1]};}
   let c=0,p=0;
   String(text).replace(/\(.*?\)/g,"").split("+").forEach(part=>{
     part=part.split("/")[0].trim();if(!part)return;
@@ -520,6 +526,13 @@ function groupsOf(t){const r=[];GROUPS.forEach((g,i)=>{if(g.some(k=>t.includes(k
 const HEAVY_KW=["पराठा","बाटी","पूरी","बिरयानी","पास्ता","साबुदाना वड़ा","साबूदाना वड़ा"];
 function isHeavy(t){return HEAVY_KW.some(k=>t.includes(k))||estimate(t).c>=450;}
 const P_MIN=12;
+
+// ---- एकादशी (हिंदू पंचांग, स्मार्त तिथि; कुछ पंचांग/वैष्णव में ±1 दिन का फ़र्क हो सकता है) ----
+const EKADASHI={"2026-10-6":"इंदिरा","2026-10-22":"पापांकुशा","2026-11-5":"रमा","2026-11-20":"देवउठनी","2026-12-4":"उत्पन्ना","2026-12-20":"मोक्षदा",
+"2027-1-3":"सफला","2027-1-19":"पौष पुत्रदा","2027-2-2":"षटतिला","2027-2-17":"जया","2027-3-4":"विजया","2027-3-18":"आमलकी","2027-4-2":"पापमोचिनी","2027-4-17":"कामदा","2027-5-2":"वरुथिनी","2027-5-16":"मोहिनी","2027-6-1":"अपरा","2027-6-14":"निर्जला","2027-6-30":"योगिनी","2027-7-14":"देवशयनी","2027-7-29":"कामिका","2027-8-12":"श्रावण पुत्रदा","2027-8-28":"अजा"};
+function ekadashiOf(d,m){return EKADASHI[yearForMonthIdx(m)+"-"+(((m+8)%12)+1)+"-"+d]||null;}
+let _myRaw=null,_myObj={};
+function getMyDish(){const r=localStorage.getItem("diet_mydish");if(r!==_myRaw){_myRaw=r;try{_myObj=JSON.parse(r||"{}")||{};}catch(e){_myObj={};}}return _myObj;}
 
 let activeMonth=0;
 let allOpen=true;
@@ -744,6 +757,7 @@ function connectUserSync(uid){
       {const sf=stField();if(data[sf]&&profile==="main")localStorage.setItem(stKey(),JSON.stringify(data[sf]));}
       if(data.rules)localStorage.setItem("diet_rules",JSON.stringify(data.rules));
       if(data.favs)localStorage.setItem("diet_favs",JSON.stringify(data.favs));
+      if(data.mydish)localStorage.setItem("diet_mydish",JSON.stringify(data.mydish));
       if(data.vrat&&profile==="main")localStorage.setItem("diet_vrat_main",JSON.stringify(data.vrat));
     }else{
       pushFullStateToCloud();
@@ -765,7 +779,7 @@ function pushFullStateToCloud(){
   try{const tg=JSON.parse(localStorage.getItem("diet_target")||"null");if(tg)payload.target=tg;}catch(e){}
   try{const wt=JSON.parse(localStorage.getItem("diet_weight_main")||"{}");if(Object.keys(wt).length)payload.weights=wt;}catch(e){}
   {const sm=getStatusMap();if(Object.keys(sm).length)payload[stField()]=sm;}
-  [["rules","diet_rules"],["favs","diet_favs"],["vrat","diet_vrat_main"]].forEach(([f,k])=>{try{const v=JSON.parse(localStorage.getItem(k)||"null");if(v)payload[f]=v;}catch(e){}});
+  [["rules","diet_rules"],["favs","diet_favs"],["vrat","diet_vrat_main"],["mydish","diet_mydish"]].forEach(([f,k])=>{try{const v=JSON.parse(localStorage.getItem(k)||"null");if(v)payload[f]=v;}catch(e){}});
   syncDocRef.set(payload,{merge:true}).catch(()=>{});
 }
 function pushTickToCloud(d,m,i,v){
@@ -1071,7 +1085,7 @@ function render(){
     html+=`<article class="day-card ${done?'done':''} ${isOpen?'open':''} ${isToday?'today':''} ${e.off>0?'rel-'+e.off:(e.off<0?'rel-prev':'')} ${isSelected?'selected':''}" data-day="${d}">
       <div class="day-head" role="button" tabindex="0" onclick="toggleCard(this.parentElement)" onkeydown="if(event.key==='Enter')toggleCard(this.parentElement)">
         <span class="day-badge" style="--pct:${pct}"><span>${d}</span></span>
-        <span class="day-title">दिन ${d} <span class="wd-badge">${weekdaysHi[wd]}</span>${showWindow?` <span class="wd-badge">${months[m]}</span>`:''}<small>${completed}/3 पूरा${completed?` • 🔥 ${tn.c} kcal • 💪 ${tn.p}g`:''}</small></span>
+        <span class="day-title">दिन ${d} <span class="wd-badge">${weekdaysHi[wd]}</span>${showWindow?` <span class="wd-badge">${months[m]}</span>`:''}<small>${completed}/3 पूरा${completed?` • 🔥 ${tn.c} kcal • 💪 ${tn.p}g`:''}${ekadashiOf(d,m)?` • 🪔 ${ekadashiOf(d,m)} एकादशी`:''}</small></span>
         <span class="chev">▾</span>
         <button type="button" class="mark-all-btn" onclick="markAllDay(event,${d},${m})" title="सभी meals एक साथ tick/untick करें">${done?'↺':'✔️'}</button>
       </div>
@@ -1118,7 +1132,7 @@ function renderTable(){
     const doneCount=[0,1,2].filter(i=>cov(d,activeMonth,i)).length;
     const tn=tickedNutri(d,activeMonth,texts);
     html+=`<tr class="${doneCount===3?'row-done':''}">
-      <td class="td-day">दिन ${d}<small>${weekdaysHi[wd]}</small>${doneCount?`<small>🔥 ${tn.c} • 💪 ${tn.p}g</small>`:''}</td>
+      <td class="td-day">दिन ${d}<small>${weekdaysHi[wd]}</small>${doneCount?`<small>🔥 ${tn.c} • 💪 ${tn.p}g</small>`:''}${ekadashiOf(d,activeMonth)?`<small>🪔 एकादशी</small>`:''}</td>
       <td class="td-meal-text">${texts[0]}${stTag(d,activeMonth,0)}</td>
       <td class="td-meal-text">${texts[1]}${stTag(d,activeMonth,1)}</td>
       <td class="td-meal-text">${texts[2]}${stTag(d,activeMonth,2)}</td>
@@ -1420,12 +1434,12 @@ function setWater(n){const l=getLog(isoToday());l.w=((l.w||0)===n)?n-1:n;setLog(
 function renderLog(){
   const el=document.getElementById("logCard");
   if(viewMode==="table"){el.innerHTML="";renderNow();return;}
-  const n=dayNutri(today),l=n.l,w=l.w||0,T=dayTarget(todayDate,todayMonthIdx);
+  const n=dayNutri(today),l=n.l,w=l.w||0,T=dayTarget(todayDate,todayMonthIdx),G=getRules().wgoal||8;
   const pc=Math.round(n.c/T.c*100),pp=Math.round(n.p/T.p*100),over=n.c>T.c*1.1;
   const bar=(v,t,col)=>`<div class="nbar"><div style="width:${Math.min(100,Math.round(v/t*100))}%;background:${col}"></div></div>`;
   el.innerHTML=`<div class="log-card cp">
-    <div class="cp-water"><b>💧 ${w}/8</b>
-      <span class="glasses">${Array.from({length:8},(_,i)=>`<span class="${i<w?'on':''}" onclick="setWater(${i+1})" title="${i+1} गिलास">💧</span>`).join("")}</span>
+    <div class="cp-water"><b>💧 ${w}/${G}</b>
+      <span class="glasses">${Array.from({length:G},(_,i)=>`<span class="${i<w?'on':''}" onclick="setWater(${i+1})" title="${i+1} गिलास">💧</span>`).join("")}</span>
       <span class="cp-btns"><button type="button" class="secondary" onclick="bumpWater(-1)">−</button><button type="button" onclick="bumpWater(1)">+</button></span></div>
     <div class="cp-nut">
       <div><div class="cp-lab"><span>🔥 ${n.c}/${T.c} kcal${over?" ⚠️":""}${T.vrat?" 🪔":""}</span><span>${pc}%</span></div>${bar(n.c,T.c,over?"#C0392B":"var(--accent)")}</div>
@@ -1481,8 +1495,10 @@ function weightChartSVG(ents){
 }
 function openWeight(){
   const ents=Object.entries(getWeights()).sort((a,b)=>isoToDate(a[0])-isoToDate(b[0])).slice(-20);
-  const last=ents[ents.length-1],diff=ents.length>1?last[1]-ents[0][1]:0;
+  const last=ents[ents.length-1],diff=ents.length>1?last[1]-ents[0][1]:0,goal=+localStorage.getItem("diet_goalw_"+profile)||0;
   showModal("⚖️ Weight",`${weightChartSVG(ents)}<p>${last?`आख़िरी: <b>${last[1]} kg</b> (${last[0]})`+(ents.length>1?` • बदलाव: <b>${diff>0?"+":""}${diff.toFixed(1)} kg</b> (${ents.length} entries)`:""):"अभी कोई entry नहीं।"}</p>
+    ${goal&&last?`<p>🎯 लक्ष्य ${goal} kg • बाकी: <b>${Math.abs(last[1]-goal).toFixed(1)} kg</b> ${last[1]>goal?"कम करना":last[1]<goal?"बढ़ाना":"✅ पूरा"}</p>`:""}
+    <input id="wGoal" type="number" step="0.1" placeholder="🎯 लक्ष्य वज़न (kg)" value="${goal||""}">
     <input id="wDate" type="date" max="${inputFromIso(isoToday())}" value="${inputFromIso(isoToday())}">
     <input id="wKg" type="number" inputmode="decimal" step="0.1" placeholder="वज़न (kg) — खाली छोड़ें तो उस दिन की entry हटेगी">`,
     [{t:"Save",f:()=>{
@@ -1493,7 +1509,7 @@ function openWeight(){
       else{const n=Number(v);if(!(n>20&&n<300)){alert("सही वज़न डालें।");return false;}all[iso]=n;}
       localStorage.setItem(wKey(),JSON.stringify(all));
       pushWeightToCloud(iso,v===""?null:Number(v));
-    }}]);
+    }},{t:"🎯 लक्ष्य सेव",f:()=>{const g=+document.getElementById("wGoal").value;if(!(g>20&&g<300)){alert("सही लक्ष्य वज़न डालें।");return false;}localStorage.setItem("diet_goalw_"+profile,String(g));}}]);
 }
 
 // ---------- 📝 kisi bhi purane din ka log ----------
@@ -1579,28 +1595,44 @@ function celebrate(d,m){
 function renderNow(){
   const el=document.getElementById("nowCard");if(!el)return;
   if(viewMode==="table"){el.innerHTML="";return;}
-  const d=todayDate,m=todayMonthIdx,row=rowTexts(d,m),h=new Date().getHours(),cur=h<11?0:h<16?1:2;
+  const d=todayDate,m=todayMonthIdx,row=rowTexts(d,m),h=new Date().getHours(),R0=getRules(),cur=h<R0.t1?0:h<R0.t2?1:2;
   const later=[0,1,2].filter(x=>x>=cur&&!cov(d,m,x)),earlier=[0,1,2].filter(x=>x<cur&&!cov(d,m,x));
   const n=dayNutri(today),T=dayTarget(d,m),remP=T.p-n.p;
   let tip="";
   if(n.c>T.c*1.1)tip="⚠️ kcal target से ज़्यादा — अगला meal हल्का रखें।";
   else if(n.has&&remP>15)tip=`💪 ~${Math.round(remP)} g protein बाकी — 🔀 में protein वाले विकल्प ऊपर आएँगे।`;
   else if(n.has&&n.p>=T.p)tip="✅ protein target पूरा!";
+  const ek=ekadashiOf(d,m);
+  if(ek)tip=isVrat(d,m)?`🪔 आज ${ek} एकादशी — व्रत का दिन`:`🪔 आज ${ek} एकादशी है`;
   const k=later.length?later[0]:(earlier.length?earlier[0]:-1);
   if(k<0){el.innerHTML=`<div class="now-card cp done"><div class="now-name">🎉 आज के तीनों meals हो गए${tip?` <span class="now-tip" style="display:inline"> • ${tip}</span>`:""}</div></div>`;return;}
   const t=row[k],e=estimate(t);
   el.innerHTML=`<div class="now-card cp"><div class="now-top"><span>${later.length?"अगला":"छूटा"} • ${mealMeta[k].icon} ${mealMeta[k].label}</span><span>~${e.c} kcal • ${e.p}g</span></div>
     <div class="now-name">${escH(t)}</div>${tip?`<div class="now-tip">${tip}</div>`:""}
-    <div class="log-btns"><button type="button" onclick="toggleMeal(${d},${m},${k},true)">✅ खा लिया</button><button type="button" class="secondary" onclick="openStatus(${d},${m},${k})">🍽️ बाहर/व्रत</button><button type="button" class="secondary" onclick="swapMeal(${d},${m},${k})">🔀 बदलें</button></div></div>`;
+    <div class="log-btns"><button type="button" onclick="toggleMeal(${d},${m},${k},true)">✅ खा लिया</button><button type="button" class="secondary" onclick="openStatus(${d},${m},${k})">🍽️ बाहर/व्रत</button><button type="button" class="secondary" onclick="swapMeal(${d},${m},${k})">🔀 बदलें</button>${ek&&!isVrat(d,m)?`<button type="button" class="secondary" onclick="setVratDay(${d},${m},true)">🪔 व्रत लगाएँ</button>`:""}</div></div>`;
 }
 function waterNudge(){
   if(document.hidden||!getRules().water)return;
   const h=new Date().getHours();if(h<9||h>21)return;
-  const w=getLog(isoToday()).w||0,exp=Math.min(8,Math.floor((h-8)/1.5));
+  const w=getLog(isoToday()).w||0,exp=Math.min(getRules().wgoal||8,Math.floor((h-8)/1.5*(getRules().wgoal||8)/8));
   if(w>=exp-1)return;
   toast(`💧 अब तक ${w} गिलास — थोड़ा पानी पी लें`,"+1 गिलास",()=>bumpWater(1),12000);
 }
 setInterval(waterNudge,50*60*1000);
+
+function vratEka(onlyMonth){
+  let n=0;
+  Object.keys(EKADASHI).forEach(k=>{
+    const a=k.split("-").map(Number),m=(a[1]-1+4)%12;
+    if(yearForMonthIdx(m)!==a[0])return;if(onlyMonth&&m!==activeMonth)return;
+    setVratDay(a[2],m,true);n++;
+  });
+  alert(n?n+" एकादशी पर व्रत लग गया।\n(तिथि स्मार्त पंचांग के अनुसार है — आपके स्थानीय पंचांग से ±1 दिन का फ़र्क हो सकता है।)":"इस महीने कोई एकादशी नहीं है।");
+}
+// ---- meri apni dish (naam → [kcal, protein]) ----
+function saveMyDish(n,c,p){const o=getMyDish();o[n]=[c,p];localStorage.setItem("diet_mydish",JSON.stringify(o));_myRaw=null;pushMisc("mydish",o);}
+// ---- sync dot + member chips ----
+setInterval(()=>{const b=document.getElementById("syncBtn");if(b){b.dataset.sync=syncDocRef?"on":"off";b.title=syncDocRef?"Cloud sync चालू":"Login / Account (sync बंद)";}},2500);
 
 // 5) meal swap — aas-paas ke 3 din me jo nahi hai, aisa vikalp
 // default plan me koi bhi same item same slot me itne din se pehle repeat nahi hota (≈9) — wahi gap maintain karte hain
@@ -1623,7 +1655,7 @@ function swapLD(d,m){
 }
 
 // ---------- 🎛️ niyam ----------
-function getRules(){try{return Object.assign({gap:7,strict:false,heavy:true,light:true,prot:true,water:true},JSON.parse(localStorage.getItem("diet_rules")||"{}"));}catch(e){return {gap:7,strict:false,heavy:true,light:true,prot:true,water:true};}}
+function getRules(){try{return Object.assign({gap:7,strict:false,heavy:true,light:true,prot:true,water:true,eka:false,wgoal:8,t1:11,t2:16},JSON.parse(localStorage.getItem("diet_rules")||"{}"));}catch(e){return {gap:7,strict:false,heavy:true,light:true,prot:true,water:true,eka:false,wgoal:8,t1:11,t2:16};}}
 function openRules(){
   const r=getRules();
   const sel=(id,v,o)=>`<select id="${id}">${o.map(x=>`<option value="${x[0]}" ${String(x[0])===String(v)?"selected":""}>${x[1]}</option>`).join("")}</select>`;
@@ -1634,20 +1666,25 @@ function openRules(){
      <p>दिन में एक ही heavy meal:</p>${sel("rHeavy",r.heavy,oo)}
      <p>शाम का भोजन हल्का (≤380 kcal):</p>${sel("rLight",r.light,oo)}
      <p>रोज़ एक meal में ≥${P_MIN} g protein:</p>${sel("rProt",r.prot,oo)}
+     <p>💧 रोज़ पानी का लक्ष्य (गिलास):</p>${sel("rGoal",r.wgoal,[[6,"6"],[8,"8"],[10,"10"],[12,"12"]])}
+     <p>🕙 नाश्ते → दोपहर कब बदले (घंटा):</p>${sel("rT1",r.t1,[[10,"10 बजे"],[11,"11 बजे"],[12,"12 बजे"]])}
+     <p>🕓 दोपहर → शाम कब बदले:</p>${sel("rT2",r.t2,[[15,"3 बजे"],[16,"4 बजे"],[17,"5 बजे"]])}
+     <p>🪔 एकादशी को अपने आप व्रत का दिन मानें:</p>${sel("rEka",r.eka,[[false,"नहीं"],[true,"हाँ"]])}
      <p>💧 पानी पीने की याद (app खुला हो तब):</p>${sel("rWater",r.water,oo)}
      <p>🚫 इस member के लिए बचने वाली चीज़ें (comma से अलग):</p><input id="rAvoid" type="text" placeholder="जैसे: प्याज़, लहसुन, तीखा" value="${getAvoid().join(", ")}">`,
     [{t:"Save",f:()=>{
       const g=id=>document.getElementById(id).value;
-      const o={gap:+g("rGap"),strict:g("rStrict")==="true",heavy:g("rHeavy")==="true",light:g("rLight")==="true",prot:g("rProt")==="true",water:g("rWater")==="true"};
+      const o={gap:+g("rGap"),strict:g("rStrict")==="true",heavy:g("rHeavy")==="true",light:g("rLight")==="true",prot:g("rProt")==="true",water:g("rWater")==="true",wgoal:+g("rGoal"),t1:+g("rT1"),t2:+g("rT2"),eka:g("rEka")==="true"};
       localStorage.setItem("diet_rules",JSON.stringify(o));pushMisc("rules",o);
       localStorage.setItem(avKey(),JSON.stringify(g("rAvoid").split(",").map(x=>x.trim()).filter(Boolean)));
-    }}]);
+      render();
+    }},{t:"🔔 Reminder",f:()=>{setTimeout(openReminder,0);}}]);
 }
 
 // ---------- 🪔 vrat ----------
 function vKey(){return "diet_vrat_"+profile;}
 function getVrat(){try{return JSON.parse(localStorage.getItem(vKey())||"{}");}catch(e){return {};}}
-function isVrat(d,m){return !!getVrat()[d+"_"+m];}
+function isVrat(d,m){return !!getVrat()[d+"_"+m]||(getRules().eka&&!!ekadashiOf(d,m));}
 function setVratDay(d,m,on){
   const v=getVrat();
   if(on){v[d+"_"+m]=1;for(let i=0;i<3;i++)saveCustomMeal(d,m,i,VRAT[i][(d+m+i)%VRAT[i].length][0]);}
@@ -1658,7 +1695,7 @@ function openVrat(){
   showModal("🪔 व्रत का दिन",`<p>तारीख चुनें। उस दिन के तीनों meals व्रत वाले विकल्प से बदल जाएँगे (🔀 में 🪔 व्रत tab भी मिलेगा)।</p>
     <input id="vDate" type="date" value="${inputFromIso(isoToday())}">
     <select id="vScope"><option value="one">सिर्फ यह दिन</option><option value="wd">इस महीने के सभी वही वार (जैसे सारे सोमवार)</option></select>`,
-    [{t:"🪔 व्रत लगाएँ",f:()=>vratApply(true)},{t:"↩️ व्रत हटाएँ",f:()=>vratApply(false)}]);
+    [{t:"🪔 व्रत लगाएँ",f:()=>vratApply(true)},{t:"↩️ व्रत हटाएँ",f:()=>vratApply(false)},{t:"🪔 सभी एकादशी (इस महीने)",f:()=>vratEka(true)},{t:"🪔 सभी एकादशी (पूरे साल)",f:()=>vratEka(false)}]);
 }
 function vratApply(on){
   const dv=document.getElementById("vDate").value;if(!dv){alert("तारीख चुनें।");return false;}
@@ -1704,8 +1741,9 @@ function swapMeal(d,m,i){
     `<div class="pick-tabs">${tabs}</div>
      <input id="pickQ" type="search" placeholder="🔎 खोजें (poha, dal, आलू...)" oninput="filterPicker()">
      <div id="pickList" style="max-height:40vh;overflow-y:auto;margin-bottom:10px"></div>
-     <input id="pickCustom" type="text" placeholder="✍️ या अपना खुद का नाम लिखें">`,
-    [{t:"✅ अपना लगाएँ",f:()=>{const v=document.getElementById("pickCustom").value.trim();if(!v)return false;return applyPick(v);}},
+     <input id="pickCustom" type="text" placeholder="✍️ या अपना खुद का नाम लिखें">
+     <div style="display:flex;gap:6px;margin-top:6px"><input id="pickCustomC" type="number" inputmode="numeric" placeholder="kcal (वैकल्पिक)"><input id="pickCustomP" type="number" inputmode="numeric" placeholder="protein g"></div>`,
+    [{t:"✅ अपना लगाएँ",f:()=>{const v=document.getElementById("pickCustom").value.trim();if(!v)return false;const c=+document.getElementById("pickCustomC").value,p=+(document.getElementById("pickCustomP").value||0);if(c>0)saveMyDish(v,Math.round(c),Math.round(p));return applyPick(v);}},
      {t:"🎲 Random",f:()=>{
        const r=pickerRank(pickerPool(pickerCtx.tab)).filter(x=>x.grp<2),top=r.filter(x=>x.grp===0).slice(0,5),p=top.length?top:r;
        if(!p.length){alert("नियमों के हिसाब से कोई विकल्प नहीं मिला।");return false;}
@@ -1715,7 +1753,7 @@ function swapMeal(d,m,i){
 function setPickTab(t){pickerCtx.tab=(t==="all"||t==="x"||t==="v")?t:+t;filterPicker();}
 function pickerPool(tab){
   const c=pickerCtx;let p=[];
-  if(tab==="x")p=EXTRA[c.i].map(a=>a[0]);
+  if(tab==="x")p=EXTRA[c.i].map(a=>a[0]).concat(Object.keys(getMyDish()));
   else if(tab==="v")p=VRAT[c.i].map(a=>a[0]);
   else{
     (tab==="all"?[0,1,2]:[tab]).forEach(t=>{meals.forEach(r=>p.push(r[t]));p.push(day31[t]);});
@@ -1826,6 +1864,8 @@ function renderProfiles(){
   const s=document.getElementById("profileSel");
   s.innerHTML=profiles.map(p=>`<option value="${p.id}">👤 ${p.name}</option>`).join("")+`<option value="__new">➕ नया member</option><option value="__del">🗑️ यह member हटाएँ</option>`;
   s.value=profile;
+  const ch=document.getElementById("memberChips");
+  if(ch)ch.innerHTML=profiles.length>1?profiles.map(p=>`<button type="button" class="${p.id===profile?"":"secondary"}" onclick="switchProfile('${p.id}')">👤 ${escH(p.name)}</button>`).join(""):"";
 }
 function switchProfile(id){
   profile=id;localStorage.setItem("diet_profile",id);
@@ -1844,7 +1884,7 @@ document.getElementById("profileSel").addEventListener("change",function(){
     if(profile==="main"){alert("मुख्य profile हटाई नहीं जा सकती — पहले कोई और member चुनें।");renderProfiles();return;}
     const id=profile,pr=profiles.find(x=>x.id===id);
     if(confirm(`"${pr.name}" और उसका सारा data हटाना है?`)){
-      Object.keys(localStorage).filter(k=>k.startsWith(`diet_${id}_`)||k.startsWith(`diet_log_${id}_`)||k===MAINCM+"_"+id).forEach(k=>localStorage.removeItem(k));
+      Object.keys(localStorage).filter(k=>k.startsWith(`diet_${id}_`)||k.startsWith(`diet_log_${id}_`)||k===MAINCM+"_"+id||new RegExp("^diet_(st|weight|avoid|vrat|target)_"+id+"(_|$)").test(k)).forEach(k=>localStorage.removeItem(k));
       profiles=profiles.filter(x=>x.id!==id);localStorage.setItem("diet_profiles",JSON.stringify(profiles));switchProfile("main");
     }else renderProfiles();
     return;
