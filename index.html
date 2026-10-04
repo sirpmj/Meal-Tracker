@@ -286,6 +286,36 @@ button:active{transform:scale(.97)}
 .stats{grid-template-columns:repeat(3,1fr)}
 .stats .stat:nth-child(1),.stats .stat:nth-child(2),.stats .stat:nth-child(4){display:none}
 .fest-line{font-size:11.5px;color:var(--muted);padding:2px 11px 6px;line-height:1.5}
+.cp-extra{font-size:11px;color:var(--muted);margin-top:4px;line-height:1.4}
+/* ---- popup (modal) layout fix: no sideways scroll, buttons wrap, bigger on desktop ---- */
+.sync-modal{box-sizing:border-box;max-width:min(520px,94vw);width:100%;overflow-x:hidden;padding:16px 16px 12px}
+.sync-modal *{box-sizing:border-box;max-width:100%}
+.sync-modal h3{font-size:16px}
+.sync-modal p,.sync-modal a,.sync-modal small{overflow-wrap:anywhere}
+.sync-modal input,.sync-modal select,.sync-modal textarea{width:100%;border:1px solid var(--line);border-radius:9px;padding:9px 11px;font-size:13px;background:var(--bg);color:var(--ink);margin-bottom:10px;min-width:0}
+.sync-modal input[type=date],.sync-modal input[type=time]{width:100%}
+.sync-modal div[style*="display:flex"]{flex-wrap:wrap}
+.sync-modal div[style*="display:flex"]>input{flex:1 1 110px;margin-bottom:0}
+.sync-modal .row{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;position:sticky;bottom:-12px;background:var(--card);padding:8px 0 4px;border-top:1px solid var(--line)}
+.sync-modal .row button{flex:1 1 calc(50% - 8px);min-width:120px;white-space:normal;padding:10px 8px;font-size:13px;line-height:1.3}
+@media(min-width:760px){.sync-modal{max-width:640px;padding:20px 22px 14px}.sync-modal .row{bottom:-14px}.sync-modal .row button{flex:1 1 calc(33% - 8px)}}
+/* ---- mobile: table becomes stacked cards (no sideways scroll); desktop day grid top-aligned ---- */
+#dayList{align-items:start}
+.controls-row.four-col{grid-template-columns:1.3fr 1fr .85fr 1fr}
+.controls-row.four-col select{font-size:12px;padding-left:6px;padding-right:4px}
+@media(max-width:640px){
+  .table-scroll{overflow-x:visible;border:0;box-shadow:none;background:transparent;border-radius:0}
+  #mealTable{min-width:0;background:transparent}
+  #mealTable thead{display:none}
+  #mealTable,#mealTable tbody,#mealTable tr,#mealTable td{display:block;width:100%}
+  #mealTable tr{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:8px;padding:7px 11px;box-shadow:var(--shadow)}
+  #mealTable tr.row-done{background:var(--done-bg)}
+  #mealTable td{border:0;padding:3px 0}
+  #mealTable td.td-day{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline;margin-bottom:2px;white-space:normal}
+  #mealTable td.td-day small{display:inline}
+  #mealTable td.td-meal-text::before{content:attr(data-l);display:inline-block;width:26px}
+  #mealTable td.td-edit{text-align:right;padding-top:4px}
+}
 </style>
 </head>
 <body>
@@ -494,6 +524,7 @@ const NUTRI=[["दाल-बाटी",380,12],["बाटी",250,6],["ढो�
 function tickedNutri(d,m,row){
   let c=0,p=0;
   row.forEach((t,i)=>{const n=mealNutri(d,m,i,t);c+=n.c;p+=n.p;});
+  (getLog(yearForMonthIdx(m)+"-"+(((m+8)%12)+1)+"-"+d).x||[]).forEach(e=>{c+=e.c||0;p+=e.p||0;});
   return {c,p};
 }
 function estimate(text){
@@ -1232,7 +1263,7 @@ function render(){
     html+=`<article class="day-card ${done?'done':''} ${isOpen?'open':''} ${isToday?'today':''} ${e.off>0?'rel-'+e.off:(e.off<0?'rel-prev':'')} ${isSelected?'selected':''}" data-day="${d}">
       <div class="day-head" role="button" tabindex="0" onclick="toggleCard(this.parentElement)" onkeydown="if(event.key==='Enter')toggleCard(this.parentElement)">
         <span class="day-badge" style="--pct:${pct}"><span>${d}</span></span>
-        <span class="day-title">दिन ${d} <span class="wd-badge">${weekdaysHi[wd]}</span>${showWindow?` <span class="wd-badge">${months[m]}</span>`:''}<small>${dayDots(d,m)} ${completed}/3 पूरा${completed?` • 🔥 ${tn.c} kcal • 💪 ${tn.p}g`:''}${ekadashiOf(d,m)?` • 🪔 ${ekadashiOf(d,m)} एकादशी`:''}${festivalOf(d,m)?` • 🎉 ${festivalOf(d,m)[0]}`:''}</small></span>
+        <span class="day-title">दिन ${d} <span class="wd-badge">${weekdaysHi[wd]}</span>${showWindow?` <span class="wd-badge">${months[m]}</span>`:''}<small>${dayDots(d,m)} ${completed}/3 पूरा${(completed||tn.c)?` • 🔥 ${tn.c} kcal • 💪 ${tn.p}g`:''}${ekadashiOf(d,m)?` • 🪔 ${ekadashiOf(d,m)} एकादशी`:''}${festivalOf(d,m)?` • 🎉 ${festivalOf(d,m)[0]}`:''}</small></span>
         <span class="chev">▾</span>
         <button type="button" class="mark-all-btn" onclick="markAllDay(event,${d},${m})" title="सभी meals एक साथ tick/untick करें">${done?'↺':'✔️'}</button>
       </div>
@@ -1281,9 +1312,9 @@ function renderTable(){
     const tn=tickedNutri(d,activeMonth,texts);
     html+=`<tr class="${doneCount===3?'row-done':''}">
       <td class="td-day">दिन ${d}<small>${weekdaysHi[wd]}</small>${doneCount?`<small>🔥 ${tn.c} • 💪 ${tn.p}g</small>`:''}${ekadashiOf(d,activeMonth)?`<small>🪔 एकादशी</small>`:''}${festivalOf(d,activeMonth)?`<small>🎉 ${festivalOf(d,activeMonth)[0]}</small>`:''}</td>
-      <td class="td-meal-text">${texts[0]}${stTag(d,activeMonth,0)}</td>
-      <td class="td-meal-text">${texts[1]}${stTag(d,activeMonth,1)}</td>
-      <td class="td-meal-text">${texts[2]}${stTag(d,activeMonth,2)}</td>
+      <td class="td-meal-text" data-l="🌅">${texts[0]}${stTag(d,activeMonth,0)}</td>
+      <td class="td-meal-text" data-l="☀️">${texts[1]}${stTag(d,activeMonth,1)}</td>
+      <td class="td-meal-text" data-l="🌙">${texts[2]}${stTag(d,activeMonth,2)}</td>
       <td class="td-edit">
         <button type="button" class="scope-btn" onclick="openDayEditModal(${d},'month')" title="सिर्फ ${months[activeMonth]} महीने के लिए edit करें">M</button>
         <button type="button" class="scope-btn" onclick="openDayEditModal(${d},'year')" title="पूरे साल (सभी महीनों) के लिए edit करें">Y</button>
@@ -1574,6 +1605,7 @@ function dayNutri(dt){
   const d=dt.getDate(),m=mIdx(dt),l=getLog(dt.getFullYear()+"-"+(dt.getMonth()+1)+"-"+d);
   let ac=0,ap=0,any=false;
   rowTexts(d,m).forEach((t,i)=>{const n=mealNutri(d,m,i,t);ac+=n.c;ap+=n.p;if(n.any)any=true;});
+  (l.x||[]).forEach(e=>{ac+=e.c||0;ap+=e.p||0;any=true;});
   return {c:l.c!=null?l.c:ac,p:l.p!=null?l.p:ap,ac,ap,l,has:any||l.c!=null||l.p!=null};
 }
 function bumpWater(n){const l=getLog(isoToday());l.w=Math.max(0,Math.min(20,(l.w||0)+n));setLog(isoToday(),l);renderLog();}
@@ -1588,11 +1620,12 @@ function renderLog(){
   el.innerHTML=`<div class="log-card cp">
     <div class="cp-water"><b>💧 ${w}/${G}</b>
       <span class="glasses">${Array.from({length:G},(_,i)=>`<span class="${i<w?'on':''}" onclick="setWater(${i+1})" title="${i+1} गिलास">💧</span>`).join("")}</span>
-      <span class="cp-btns"><button type="button" class="secondary" onclick="bumpWater(-1)">−</button><button type="button" onclick="bumpWater(1)">+</button></span></div>
+      <span class="cp-btns"><button type="button" class="secondary" onclick="bumpWater(-1)">−</button><button type="button" onclick="bumpWater(1)">+</button><button type="button" class="secondary" onclick="openExtra()" title="अलग से कुछ खाया (आइसक्रीम, चाय...)">🍦</button></span></div>
     <div class="cp-nut">
       <div><div class="cp-lab"><span>🔥 ${n.c}/${T.c} kcal${over?" ⚠️":""}${T.vrat?" 🪔":""}</span><span>${pc}%</span></div>${bar(n.c,T.c,over?"#C0392B":"var(--accent)")}</div>
       <div><div class="cp-lab"><span>💪 ${n.p}/${T.p} g${n.p>=T.p?" ✅":""}</span><span>${pp}%</span></div>${bar(n.p,T.p,"var(--primary)")}</div>
     </div>
+    ${(l.x&&l.x.length)?`<div class="cp-extra">🍦 Extra: ${l.x.map(e=>escH(e.n)+" "+e.c).join(" • ")}</div>`:""}
     <details class="cp-more"><summary>✍️ खुद डालें • 📝 note${l.c!=null||l.p!=null||l.n?" •":""}${l.c!=null||l.p!=null?" ✍️":""}${l.n?" 📝":""}</summary>
       <div class="log-note">${l.c!=null||l.p!=null?"आपके डाले हुए आंकड़े काम में लिए जा रहे हैं":"खाली हो तो tick / status किए meals से अंदाज़ा लिया जाता है"}</div>
       <div class="log-row"><input type="number" inputmode="numeric" placeholder="kcal (अभी ${n.ac})" value="${l.c??""}" onchange="setLogField('c',this.value)">
@@ -1759,7 +1792,7 @@ function renderNow(){
   const t=row[k],e=estimate(t);
   el.innerHTML=`<div class="now-card cp"><div class="now-top"><span>${later.length?"अगला":"छूटा"} • ${mealMeta[k].icon} ${mealMeta[k].label}</span><span>~${e.c} kcal • ${e.p}g</span></div>
     <div class="now-name">${escH(t)}</div>${tip?`<div class="now-tip">${tip}</div>`:""}
-    <div class="log-btns"><button type="button" onclick="toggleMeal(${d},${m},${k},true)">✅ खा लिया</button><button type="button" class="secondary" onclick="openStatus(${d},${m},${k})">🍽️ बाहर/व्रत</button><button type="button" class="secondary" onclick="swapMeal(${d},${m},${k})">🔀 बदलें</button>${(ek||(fs&&fs[1]))&&!isVrat(d,m)?`<button type="button" class="secondary" onclick="setVratDay(${d},${m},true)">🪔 व्रत लगाएँ</button>`:""}</div></div>`;
+    <div class="log-btns"><button type="button" onclick="toggleMeal(${d},${m},${k},true)">✅ खा लिया</button><button type="button" class="secondary" onclick="openStatus(${d},${m},${k})">🍽️ बाहर/व्रत</button><button type="button" class="secondary" onclick="swapMeal(${d},${m},${k})">🔀 बदलें</button><button type="button" class="secondary" onclick="openExtra()">🍦 Extra</button>${(ek||(fs&&fs[1]))&&!isVrat(d,m)?`<button type="button" class="secondary" onclick="setVratDay(${d},${m},true)">🪔 व्रत लगाएँ</button>`:""}</div></div>`;
 }
 function waterNudge(){
   if(document.hidden||!getRules().water)return;
@@ -1785,6 +1818,113 @@ function saveMyDish(n,c,p){const o=getMyDish();o[n]=[c,p];localStorage.setItem("
 setInterval(()=>{const b=document.getElementById("syncBtn");if(b){b.dataset.sync=syncDocRef?"on":"off";b.title=syncDocRef?"Cloud sync चालू":"Login / Account (sync बंद)";}},2500);
 
 function dayDots(d,m){return [0,1,2].map(i=>{if(get(d,m,i))return "✅";const x=stat(d,m,i);return x?(x.t==="out"?"🍽️":x.t==="vrat"?"🪔":"⏭️"):"⬜";}).join("");}
+// ---------- 🍦 alag se khaya (ice cream, chai...) + online search ----------
+const FOODS=[
+["आइसक्रीम (कप / स्कूप)","ice cream icecream aaiskrim vanilla chocolate",140,2,"1 स्कूप (~70g)"],
+["आइसक्रीम कोन / बार","ice cream cone bar choco bar kwality walls amul",200,3,"1 पीस"],
+["कुल्फी","kulfi",180,4,"1 पीस"],
+["चाय (दूध-शक्कर)","chai tea",90,2,"1 कप"],["कॉफी (दूध-शक्कर)","coffee kofi",80,2,"1 कप"],
+["कोल्ड ड्रिंक","cold drink cola soda pepsi coke thums up sprite",130,0,"300 ml"],
+["फलों का जूस (पैक)","juice frooti maaza",120,1,"1 ग्लास"],["नारियल पानी","nariyal pani coconut water",45,1,"1 ग्लास"],
+["लस्सी (मीठी)","lassi",180,6,"1 ग्लास"],["छाछ","chaas chaas buttermilk",40,2,"1 ग्लास"],["दूध","doodh milk",150,8,"1 ग्लास (250 ml)"],
+["बिस्किट","biscuit cookies parle marie good day",100,2,"2 पीस"],["चिप्स / कुरकुरे","chips wafers kurkure lays",160,2,"30 g पैक"],
+["नमकीन / भुजिया / सेव","namkeen bhujia sev chevdo mixture",160,4,"30 g"],
+["समोसा","samosa",260,5,"1 पीस"],["कचौरी","kachori",250,5,"1 पीस"],["वड़ा पाव","vada pav",290,7,"1 पीस"],
+["पकोड़े / भजिया","pakoda bhajiya bhajia",250,5,"5 पीस"],["पानीपूरी","pani puri golgappa puchka",200,4,"6 पीस"],
+["पाव भाजी","pav bhaji",600,14,"1 प्लेट (2 पाव)"],["पिज़्ज़ा","pizza",285,12,"1 स्लाइस"],["बर्गर","burger",300,10,"1 पीस"],
+["सैंडविच","sandwich",250,8,"1 पीस"],["मैगी / नूडल्स","maggi noodles",350,7,"1 पैक"],
+["मिठाई (बर्फी / पेड़ा)","mithai sweet barfi peda",200,3,"1 पीस"],["गुलाब जामुन","gulab jamun",150,2,"1 पीस"],["जलेबी","jalebi",200,2,"2 पीस"],["लड्डू","laddu ladoo",180,3,"1 पीस"],
+["चॉकलेट","chocolate dairy milk",150,2,"1 छोटी (~30 g)"],
+["केला","banana kela",90,1,"1 मध्यम"],["सेब","apple seb",80,0,"1 मध्यम"],["आम","mango aam",100,1,"~150 g"],["पपीता","papaya papita",60,1,"1 कटोरी"],["अंगूर","grapes angoor",70,1,"1 कटोरी"],
+["मूंगफली","peanuts moongfali",170,7,"1 मुट्ठी (30 g)"],["मेवे (ड्राई फ्रूट)","dry fruit badam kaju almonds cashew",180,5,"1 मुट्ठी"],
+["दही","dahi curd yogurt",80,4,"1 कटोरी"],["पनीर","paneer",130,9,"50 g"],
+["रोटी","roti chapati",110,3,"1 रोटी"],["चावल","rice chawal",200,4,"1 कटोरी"],["खिचड़ी","khichdi",180,6,"1 कटोरी"],
+["ढोकला / खमन","dhokla khaman",160,7,"4 पीस"],["थेपला","thepla",130,4,"1 पीस"],["खाखरा","khakhra",50,1,"1 पीस"],
+["घी / मक्खन","ghee butter makhan",45,0,"1 चम्मच"],["चीनी / शक्कर","sugar cheeni shakkar",20,0,"1 चम्मच"]
+];
+let exOnlineRes=[],exLast=0;
+function exIso(){const e=document.getElementById("exDate");return e&&e.value?isoFromInput(e.value):isoToday();}
+function exQty(){return Math.max(0.1,Math.min(20,+document.getElementById("exQty").value||1));}
+function exAdd(n,c,p,noq){
+  const iso=exIso(),q=noq?1:exQty(),l=getLog(iso);l.x=l.x||[];
+  l.x.push({n:(q===1?n:n+" ×"+q).slice(0,50),c:Math.round(c*q),p:Math.round(p*q*10)/10});
+  setLog(iso,l);exRefresh();render();
+}
+function exDel(iso,i){const l=getLog(iso);if(l.x){l.x.splice(i,1);if(!l.x.length)delete l.x;}setLog(iso,l);exRefresh();render();}
+function exRefresh(){
+  const box=document.getElementById("exToday");if(!box)return;
+  const iso=exIso(),xs=getLog(iso).x||[];
+  box.innerHTML="";
+  if(!xs.length){box.textContent="इस दिन अभी कोई extra नहीं जोड़ा।";return;}
+  xs.forEach((e,i)=>{const b=document.createElement("button");b.type="button";b.className="secondary";b.style.cssText="display:block;width:100%;text-align:left;margin-bottom:4px;white-space:normal";b.textContent=`🗑️ ${e.n} — ${e.c} kcal • ${e.p}g`;b.onclick=()=>exDel(iso,i);box.appendChild(b);});
+  const t=xs.reduce((a,e)=>[a[0]+(e.c||0),a[1]+(e.p||0)],[0,0]),sm=document.createElement("div");
+  sm.style.cssText="font-size:11.5px;color:var(--muted)";sm.textContent=`कुल extra: ${t[0]} kcal • ${Math.round(t[1])}g protein (हटाने के लिए टैप करें)`;box.appendChild(sm);
+}
+function exRow(name,small,fn){
+  const b=document.createElement("button");b.type="button";b.className="pick-item";b.textContent=name;
+  const sm=document.createElement("small");sm.textContent=small;b.appendChild(sm);b.onclick=fn;return b;
+}
+function exFilter(){
+  const box=document.getElementById("exList");if(!box)return;
+  const q=document.getElementById("exQ").value.trim().toLowerCase();
+  box.innerHTML="";
+  const toks=q.split(/\s+/).filter(Boolean);
+  const hits=FOODS.filter(f=>{if(!toks.length)return true;const ws=(f[0]+" "+f[1]).toLowerCase().split(/[\s\/()+,]+/);return toks.every(t=>ws.some(w=>w.startsWith(t)));});
+  hits.slice(0,40).forEach(f=>box.appendChild(exRow(f[0],`${f[4]} • ~${f[2]} kcal • ${f[3]}g`,()=>exAdd(f[0]+" ("+f[4]+")",f[2],f[3]))));
+  if(!hits.length){const p=document.createElement("p");p.textContent="अपनी list में नहीं मिला — 🌐 ऑनलाइन खोजें दबाएँ, या नीचे हाथ से जोड़ें।";box.appendChild(p);}
+  if(exOnlineRes.length){
+    const h=document.createElement("div");h.style.cssText="font-size:11px;color:var(--muted);margin:8px 0 4px";
+    h.textContent="🌐 ऑनलाइन नतीजे — Source: Open Food Facts (लोगों का डाला डेटा, गलत भी हो सकता है)";box.appendChild(h);
+    exOnlineRes.forEach(r=>{
+      const sq=r.sq>0?r.sq:100,c=r.k*sq/100,p=r.p*sq/100;
+      box.appendChild(exRow(r.n,`${sq} g ≈ ${Math.round(c)} kcal • ${Math.round(p*10)/10}g protein (100 g: ${Math.round(r.k)} kcal)`,()=>exAdd(r.n+" ("+sq+"g)",c,p)));
+    });
+  }
+}
+function exMsg(t){const e=document.getElementById("exOnMsg");if(e)e.textContent=t;}
+async function exOnline(){
+  const q=document.getElementById("exQ").value.trim();
+  if(!q){exMsg("पहले ऊपर खाने का नाम लिखें (अंग्रेज़ी या ब्रांड का नाम बेहतर चलता है)।");return;}
+  if(Date.now()-exLast<6000){exMsg("थोड़ा रुककर दोबारा खोजें (सर्वर की सीमा)।");return;}
+  exLast=Date.now();exMsg("🌐 खोज रहे हैं...");
+  try{
+    const ctl=new AbortController(),tm=setTimeout(()=>ctl.abort(),12000);
+    const r=await fetch("https://world.openfoodfacts.org/cgi/search.pl?search_terms="+encodeURIComponent(q)+"&search_simple=1&action=process&json=1&page_size=15&fields=product_name,brands,nutriments,serving_quantity",{signal:ctl.signal});
+    clearTimeout(tm);
+    if(!r.ok)throw new Error("HTTP "+r.status);
+    const j=await r.json();
+    exOnlineRes=(j.products||[]).map(p=>{
+      const n=p.nutriments||{};let k=n["energy-kcal_100g"];
+      if(k==null&&n.energy_100g!=null)k=n.energy_100g/4.184;
+      if(k==null||!p.product_name)return null;
+      return {n:(p.product_name+(p.brands?" ("+String(p.brands).split(",")[0]+")":"")).slice(0,60),k:+k,p:+n.proteins_100g||0,sq:+p.serving_quantity||0};
+    }).filter(Boolean);
+    exMsg(exOnlineRes.length?"✅ "+exOnlineRes.length+" नतीजे मिले — नीचे list में देखें।":"कुछ नहीं मिला — दूसरा नाम आज़माएँ या हाथ से जोड़ें।");
+    exFilter();
+  }catch(e){
+    exMsg("❌ ऑनलाइन खोज नहीं चली (internet या सर्वर की दिक्कत)। ऊपर की list से चुनें या नीचे हाथ से जोड़ें।");
+  }
+}
+function openExtra(){
+  exOnlineRes=[];
+  showModal("🍦 अलग से कुछ खाया?",`<input id="exQ" type="search" placeholder="🔎 क्या खाया? (ice cream, चाय, samosa...)" oninput="exFilter()">
+    <div style="display:flex;gap:6px;margin:6px 0;align-items:center"><input id="exQty" type="number" step="0.5" min="0.5" value="1" style="max-width:80px" title="मात्रा"><span style="font-size:12px">× मात्रा (कितने serving)</span><button type="button" class="secondary" onclick="exOnline()" style="margin-left:auto;width:auto">🌐 ऑनलाइन खोजें</button></div>
+    <div id="exOnMsg" style="font-size:11.5px;color:var(--muted);min-height:14px"></div>
+    <div id="exList" style="max-height:30vh;overflow-y:auto;margin-bottom:8px"></div>
+    <p style="margin:4px 0;font-size:12px"><b>✍️ हाथ से जोड़ें (मात्रा से गुणा नहीं होगा):</b></p>
+    <input id="exN" type="text" placeholder="नाम (जैसे: आइसक्रीम)">
+    <div style="display:flex;gap:6px"><input id="exC" type="number" inputmode="numeric" placeholder="kcal"><input id="exP" type="number" inputmode="numeric" placeholder="protein g (वैकल्पिक)"></div>
+    <input id="exDate" type="date" max="${inputFromIso(isoToday())}" value="${inputFromIso(isoToday())}" onchange="exRefresh()">
+    <div id="exToday" style="margin-top:6px"></div>`,
+    [{t:"➕ हाथ से जोड़ें",f:()=>{
+       const n=document.getElementById("exN").value.trim(),c=+document.getElementById("exC").value,p=+(document.getElementById("exP").value||0);
+       if(!n||!(c>0)){alert("नाम और kcal डालें।");return false;}
+       exAdd(n,Math.min(5000,c),Math.min(300,p),true);
+       document.getElementById("exN").value="";document.getElementById("exC").value="";document.getElementById("exP").value="";
+       return false;}},
+     {t:"✔️ हो गया",f:()=>{}}]);
+  exFilter();exRefresh();
+}
 // 5) meal swap — aas-paas ke 3 din me jo nahi hai, aisa vikalp
 // default plan me koi bhi same item same slot me itne din se pehle repeat nahi hota (≈9) — wahi gap maintain karte hain
 const MIN_GAP=(()=>{let g=99;for(let t=0;t<3;t++){const p={};meals.forEach((r,ix)=>{(p[r[t]]=p[r[t]]||[]).push(ix);});Object.values(p).forEach(a=>{for(let k=0;k<a.length;k++){const nx=k+1<a.length?a[k+1]:a[0]+30;g=Math.min(g,nx-a[k]);}});}return g===99?7:Math.min(g,10);})();
