@@ -348,7 +348,7 @@ button:active{transform:scale(.97)}
       </div>
       <div class="controls-row">
         <button class="secondary" onclick="openRules()">🎛️ नियम / सेटिंग</button>
-        <button class="secondary" onclick="openVrat()">🪔 व्रत / एकादशी</button>
+        <button class="secondary" onclick="openVrat()">🪔 व्रत / त्योहार</button>
         <button class="secondary" onclick="planWeek()">✨ Best हफ़्ता</button>
       </div>
       <div class="controls-row">
@@ -380,7 +380,7 @@ button:active{transform:scale(.97)}
     <div class="heatmap-title">📊 इस महीने का overview (टैप कर के उस दिन पर जाएं)</div>
     <div class="heatmap" id="heatmap"></div>
   </section>
-  <div class="legend">💡 डिफ़ॉल्ट में आज, कल और परसों के meals दिखते हैं — "पूरा महीना" दबाकर बाकी दिन भी देखें। Card पर टैप कर के खोलें/बंद करें, meal पूरा होने पर checkbox tick करें।</div>
+  <div class="legend">💡 "आज" view में सिर्फ आज का card खुला रहता है। बीता कल / कल / परसों में से किसी एक पर टैप करें तो तीनों साथ खुल जाते हैं (दोबारा टैप करने पर बंद)। "पूरा महीना" दबाकर बाकी दिन देखें।</div>
 
   <section id="tableView" class="hidden">
     <div class="table-toolbar">
@@ -530,12 +530,31 @@ const P_MIN=12;
 // ---- एकादशी (हिंदू पंचांग, स्मार्त तिथि; कुछ पंचांग/वैष्णव में ±1 दिन का फ़र्क हो सकता है) ----
 const EKADASHI={"2026-10-6":"इंदिरा","2026-10-22":"पापांकुशा","2026-11-5":"रमा","2026-11-20":"देवउठनी","2026-12-4":"उत्पन्ना","2026-12-20":"मोक्षदा",
 "2027-1-3":"सफला","2027-1-19":"पौष पुत्रदा","2027-2-2":"षटतिला","2027-2-17":"जया","2027-3-4":"विजया","2027-3-18":"आमलकी","2027-4-2":"पापमोचिनी","2027-4-17":"कामदा","2027-5-2":"वरुथिनी","2027-5-16":"मोहिनी","2027-6-1":"अपरा","2027-6-14":"निर्जला","2027-6-30":"योगिनी","2027-7-14":"देवशयनी","2027-7-29":"कामिका","2027-8-12":"श्रावण पुत्रदा","2027-8-28":"अजा"};
-function ekadashiOf(d,m){return EKADASHI[yearForMonthIdx(m)+"-"+(((m+8)%12)+1)+"-"+d]||null;}
+function ekadashiOf(d,m){const k=yearForMonthIdx(m)+"-"+(((m+8)%12)+1)+"-"+d,c=getMyDates()[k];if(c&&c.k==="ek")return c.n;return EKADASHI[k]||null;}
 let _myRaw=null,_myObj={};
 function getMyDish(){const r=localStorage.getItem("diet_mydish");if(r!==_myRaw){_myRaw=r;try{_myObj=JSON.parse(r||"{}")||{};}catch(e){_myObj={};}}return _myObj;}
+// ---- त्योहार (Oct 2026 – Aug 2027; सार्वजनिक पंचांग सूचियों के हिसाब से, किसी-किसी की तारीख ±1 दिन फ़र्क हो सकता है) ----
+const FESTIVALS={};
+(function(){
+  const add=(y,m,d,n,f)=>{FESTIVALS[y+"-"+m+"-"+d]=[n,f?1:0];};
+  for(let i=0;i<9;i++)add(2026,10,11+i,"शारदीय नवरात्रि (दिन "+(i+1)+")",0);
+  for(let i=0;i<9;i++)add(2027,4,7+i,"चैत्र नवरात्रि (दिन "+(i+1)+")",0);
+  [[2026,10,19,"महानवमी (नवरात्रि दिन 9)"],[2026,10,20,"विजयादशमी / दशहरा"],[2026,10,25,"शरद पूर्णिमा"],[2026,10,29,"करवा चौथ",1],
+   [2026,11,6,"धनतेरस"],[2026,11,7,"नरक चतुर्दशी (छोटी दिवाली)"],[2026,11,8,"दिवाली (लक्ष्मी पूजन)"],[2026,11,10,"गोवर्धन पूजा / गुजराती नव वर्ष"],[2026,11,11,"भाई दूज (भाई बीज)"],[2026,11,24,"कार्तिक पूर्णिमा / देव दिवाली"],
+   [2026,12,20,"गीता जयंती"],[2026,12,23,"दत्तात्रेय जयंती"],
+   [2027,1,14,"उत्तरायण (मकर संक्रांति)"],[2027,1,15,"वासी उत्तरायण / संक्रांति"],[2027,2,11,"वसंत पंचमी"],[2027,3,6,"महाशिवरात्रि",1],[2027,3,21,"होलिका दहन"],[2027,3,22,"होली / धुलेटी"],
+   [2027,4,7,"गुड़ी पड़वा / चैत्र नवरात्रि शुरू"],[2027,4,15,"राम नवमी (नवरात्रि दिन 9)"],[2027,4,20,"हनुमान जयंती"],[2027,5,9,"अक्षय तृतीया"],
+   [2027,7,5,"जगन्नाथ रथ यात्रा"],[2027,7,18,"गुरु पूर्णिमा"],[2027,8,17,"रक्षा बंधन"],[2027,8,25,"कृष्ण जन्माष्टमी",1]
+  ].forEach(x=>add(x[0],x[1],x[2],x[3],x[4]));
+})();
+let _mdRaw=null,_mdObj={};
+function getMyDates(){const r=localStorage.getItem("diet_mydates");if(r!==_mdRaw){_mdRaw=r;try{_mdObj=JSON.parse(r||"{}")||{};}catch(e){_mdObj={};}}return _mdObj;}
+function dateKey(d,m){return yearForMonthIdx(m)+"-"+(((m+8)%12)+1)+"-"+d;}
+function festivalOf(d,m){const k=dateKey(d,m),c=getMyDates()[k];if(c&&c.k==="fest")return [c.n,c.f?1:0];return FESTIVALS[k]||null;}
 
 let activeMonth=0;
 let allOpen=true;
+let todayOpen=true,windowActive=false,windowOpen=(()=>{try{return JSON.parse(localStorage.getItem("diet_rules")||"{}").peek===true;}catch(e){return false;}})();
 let viewMode="today"; // "today" = show today ±1 day, "all" = full month
 // how many days each month actually has; Feb runs short (29) and reuses day 1's
 // meals for the missing slot never happens — Feb just stops at 29.
@@ -758,6 +777,7 @@ function connectUserSync(uid){
       if(data.rules)localStorage.setItem("diet_rules",JSON.stringify(data.rules));
       if(data.favs)localStorage.setItem("diet_favs",JSON.stringify(data.favs));
       if(data.mydish)localStorage.setItem("diet_mydish",JSON.stringify(data.mydish));
+      if(data.mydates)localStorage.setItem("diet_mydates",JSON.stringify(data.mydates));
       if(data.vrat&&profile==="main")localStorage.setItem("diet_vrat_main",JSON.stringify(data.vrat));
     }else{
       pushFullStateToCloud();
@@ -779,7 +799,7 @@ function pushFullStateToCloud(){
   try{const tg=JSON.parse(localStorage.getItem("diet_target")||"null");if(tg)payload.target=tg;}catch(e){}
   try{const wt=JSON.parse(localStorage.getItem("diet_weight_main")||"{}");if(Object.keys(wt).length)payload.weights=wt;}catch(e){}
   {const sm=getStatusMap();if(Object.keys(sm).length)payload[stField()]=sm;}
-  [["rules","diet_rules"],["favs","diet_favs"],["vrat","diet_vrat_main"],["mydish","diet_mydish"]].forEach(([f,k])=>{try{const v=JSON.parse(localStorage.getItem(k)||"null");if(v)payload[f]=v;}catch(e){}});
+  [["rules","diet_rules"],["favs","diet_favs"],["vrat","diet_vrat_main"],["mydish","diet_mydish"],["mydates","diet_mydates"]].forEach(([f,k])=>{try{const v=JSON.parse(localStorage.getItem(k)||"null");if(v)payload[f]=v;}catch(e){}});
   syncDocRef.set(payload,{merge:true}).catch(()=>{});
 }
 function pushTickToCloud(d,m,i,v){
@@ -1036,6 +1056,11 @@ function undoLast(){
 }
 
 function toggleCard(dayEl){
+  if(windowActive){
+    if(dayEl.classList.contains("today")){todayOpen=!todayOpen;dayEl.classList.toggle("open",todayOpen);}
+    else{windowOpen=!windowOpen;document.querySelectorAll("#dayList .day-card:not(.today)").forEach(c=>c.classList.toggle("open",windowOpen));}
+    return;
+  }
   const d=dayEl.dataset.day;
   openState[d]=!openState[d];
   dayEl.classList.toggle("open",openState[d]);
@@ -1058,6 +1083,7 @@ function render(){
 
   const showWindow=viewMode==="today"&&activeMonth===todayMonthIdx;
   let entries=[];
+  windowActive=!!showWindow;
   if(showWindow) entries=windowDays();
   else for(let d=1;d<=dayCount;d++) entries.push({d,m:activeMonth,wd:weekdayFor(d),off:null});
 
@@ -1076,7 +1102,7 @@ function render(){
     const statusMatch=sf==="all"||(sf==="done"&&done)||(sf==="pending"&&!done);
     if(!matchText||!dayMatch||!statusMatch)continue;
     visible++;
-    const isOpen=openState[d]||false;
+    const isOpen=showWindow?(e.off===0?todayOpen:windowOpen):(openState[d]||false);
     const pct=Math.round(completed/3*100);
     const tn=tickedNutri(d,m,row);
 
@@ -1085,7 +1111,7 @@ function render(){
     html+=`<article class="day-card ${done?'done':''} ${isOpen?'open':''} ${isToday?'today':''} ${e.off>0?'rel-'+e.off:(e.off<0?'rel-prev':'')} ${isSelected?'selected':''}" data-day="${d}">
       <div class="day-head" role="button" tabindex="0" onclick="toggleCard(this.parentElement)" onkeydown="if(event.key==='Enter')toggleCard(this.parentElement)">
         <span class="day-badge" style="--pct:${pct}"><span>${d}</span></span>
-        <span class="day-title">दिन ${d} <span class="wd-badge">${weekdaysHi[wd]}</span>${showWindow?` <span class="wd-badge">${months[m]}</span>`:''}<small>${completed}/3 पूरा${completed?` • 🔥 ${tn.c} kcal • 💪 ${tn.p}g`:''}${ekadashiOf(d,m)?` • 🪔 ${ekadashiOf(d,m)} एकादशी`:''}</small></span>
+        <span class="day-title">दिन ${d} <span class="wd-badge">${weekdaysHi[wd]}</span>${showWindow?` <span class="wd-badge">${months[m]}</span>`:''}<small>${dayDots(d,m)} ${completed}/3 पूरा${completed?` • 🔥 ${tn.c} kcal • 💪 ${tn.p}g`:''}${ekadashiOf(d,m)?` • 🪔 ${ekadashiOf(d,m)} एकादशी`:''}${festivalOf(d,m)?` • 🎉 ${festivalOf(d,m)[0]}`:''}</small></span>
         <span class="chev">▾</span>
         <button type="button" class="mark-all-btn" onclick="markAllDay(event,${d},${m})" title="सभी meals एक साथ tick/untick करें">${done?'↺':'✔️'}</button>
       </div>
@@ -1132,7 +1158,7 @@ function renderTable(){
     const doneCount=[0,1,2].filter(i=>cov(d,activeMonth,i)).length;
     const tn=tickedNutri(d,activeMonth,texts);
     html+=`<tr class="${doneCount===3?'row-done':''}">
-      <td class="td-day">दिन ${d}<small>${weekdaysHi[wd]}</small>${doneCount?`<small>🔥 ${tn.c} • 💪 ${tn.p}g</small>`:''}${ekadashiOf(d,activeMonth)?`<small>🪔 एकादशी</small>`:''}</td>
+      <td class="td-day">दिन ${d}<small>${weekdaysHi[wd]}</small>${doneCount?`<small>🔥 ${tn.c} • 💪 ${tn.p}g</small>`:''}${ekadashiOf(d,activeMonth)?`<small>🪔 एकादशी</small>`:''}${festivalOf(d,activeMonth)?`<small>🎉 ${festivalOf(d,activeMonth)[0]}</small>`:''}</td>
       <td class="td-meal-text">${texts[0]}${stTag(d,activeMonth,0)}</td>
       <td class="td-meal-text">${texts[1]}${stTag(d,activeMonth,1)}</td>
       <td class="td-meal-text">${texts[2]}${stTag(d,activeMonth,2)}</td>
@@ -1603,13 +1629,15 @@ function renderNow(){
   else if(n.has&&remP>15)tip=`💪 ~${Math.round(remP)} g protein बाकी — 🔀 में protein वाले विकल्प ऊपर आएँगे।`;
   else if(n.has&&n.p>=T.p)tip="✅ protein target पूरा!";
   const ek=ekadashiOf(d,m);
-  if(ek)tip=isVrat(d,m)?`🪔 आज ${ek} एकादशी — व्रत का दिन`:`🪔 आज ${ek} एकादशी है`;
+  const fs=festivalOf(d,m);
+  if(fs)tip=`🎉 आज ${fs[0]}`;
+  if(ek)tip=(isVrat(d,m)?`🪔 आज ${ek} एकादशी — व्रत का दिन`:`🪔 आज ${ek} एकादशी है`)+(fs?` • 🎉 ${fs[0]}`:"");
   const k=later.length?later[0]:(earlier.length?earlier[0]:-1);
   if(k<0){el.innerHTML=`<div class="now-card cp done"><div class="now-name">🎉 आज के तीनों meals हो गए${tip?` <span class="now-tip" style="display:inline"> • ${tip}</span>`:""}</div></div>`;return;}
   const t=row[k],e=estimate(t);
   el.innerHTML=`<div class="now-card cp"><div class="now-top"><span>${later.length?"अगला":"छूटा"} • ${mealMeta[k].icon} ${mealMeta[k].label}</span><span>~${e.c} kcal • ${e.p}g</span></div>
     <div class="now-name">${escH(t)}</div>${tip?`<div class="now-tip">${tip}</div>`:""}
-    <div class="log-btns"><button type="button" onclick="toggleMeal(${d},${m},${k},true)">✅ खा लिया</button><button type="button" class="secondary" onclick="openStatus(${d},${m},${k})">🍽️ बाहर/व्रत</button><button type="button" class="secondary" onclick="swapMeal(${d},${m},${k})">🔀 बदलें</button>${ek&&!isVrat(d,m)?`<button type="button" class="secondary" onclick="setVratDay(${d},${m},true)">🪔 व्रत लगाएँ</button>`:""}</div></div>`;
+    <div class="log-btns"><button type="button" onclick="toggleMeal(${d},${m},${k},true)">✅ खा लिया</button><button type="button" class="secondary" onclick="openStatus(${d},${m},${k})">🍽️ बाहर/व्रत</button><button type="button" class="secondary" onclick="swapMeal(${d},${m},${k})">🔀 बदलें</button>${(ek||(fs&&fs[1]))&&!isVrat(d,m)?`<button type="button" class="secondary" onclick="setVratDay(${d},${m},true)">🪔 व्रत लगाएँ</button>`:""}</div></div>`;
 }
 function waterNudge(){
   if(document.hidden||!getRules().water)return;
@@ -1634,6 +1662,7 @@ function saveMyDish(n,c,p){const o=getMyDish();o[n]=[c,p];localStorage.setItem("
 // ---- sync dot + member chips ----
 setInterval(()=>{const b=document.getElementById("syncBtn");if(b){b.dataset.sync=syncDocRef?"on":"off";b.title=syncDocRef?"Cloud sync चालू":"Login / Account (sync बंद)";}},2500);
 
+function dayDots(d,m){return [0,1,2].map(i=>{if(get(d,m,i))return "✅";const x=stat(d,m,i);return x?(x.t==="out"?"🍽️":x.t==="vrat"?"🪔":"⏭️"):"⬜";}).join("");}
 // 5) meal swap — aas-paas ke 3 din me jo nahi hai, aisa vikalp
 // default plan me koi bhi same item same slot me itne din se pehle repeat nahi hota (≈9) — wahi gap maintain karte hain
 const MIN_GAP=(()=>{let g=99;for(let t=0;t<3;t++){const p={};meals.forEach((r,ix)=>{(p[r[t]]=p[r[t]]||[]).push(ix);});Object.values(p).forEach(a=>{for(let k=0;k<a.length;k++){const nx=k+1<a.length?a[k+1]:a[0]+30;g=Math.min(g,nx-a[k]);}});}return g===99?7:Math.min(g,10);})();
@@ -1655,7 +1684,7 @@ function swapLD(d,m){
 }
 
 // ---------- 🎛️ niyam ----------
-function getRules(){try{return Object.assign({gap:7,strict:false,heavy:true,light:true,prot:true,water:true,eka:false,wgoal:8,t1:11,t2:16},JSON.parse(localStorage.getItem("diet_rules")||"{}"));}catch(e){return {gap:7,strict:false,heavy:true,light:true,prot:true,water:true,eka:false,wgoal:8,t1:11,t2:16};}}
+function getRules(){try{return Object.assign({gap:7,strict:false,heavy:true,light:true,prot:true,water:true,eka:false,wgoal:8,t1:11,t2:16,peek:false},JSON.parse(localStorage.getItem("diet_rules")||"{}"));}catch(e){return {gap:7,strict:false,heavy:true,light:true,prot:true,water:true,eka:false,wgoal:8,t1:11,t2:16,peek:false};}}
 function openRules(){
   const r=getRules();
   const sel=(id,v,o)=>`<select id="${id}">${o.map(x=>`<option value="${x[0]}" ${String(x[0])===String(v)?"selected":""}>${x[1]}</option>`).join("")}</select>`;
@@ -1666,6 +1695,7 @@ function openRules(){
      <p>दिन में एक ही heavy meal:</p>${sel("rHeavy",r.heavy,oo)}
      <p>शाम का भोजन हल्का (≤380 kcal):</p>${sel("rLight",r.light,oo)}
      <p>रोज़ एक meal में ≥${P_MIN} g protein:</p>${sel("rProt",r.prot,oo)}
+     <p>📅 "आज" view में बीता कल / कल / परसों:</p>${sel("rPeek",r.peek,[[false,"बंद रहें (एक पर टैप करने से तीनों खुलें)"],[true,"शुरू से खुले रहें"]])}
      <p>💧 रोज़ पानी का लक्ष्य (गिलास):</p>${sel("rGoal",r.wgoal,[[6,"6"],[8,"8"],[10,"10"],[12,"12"]])}
      <p>🕙 नाश्ते → दोपहर कब बदले (घंटा):</p>${sel("rT1",r.t1,[[10,"10 बजे"],[11,"11 बजे"],[12,"12 बजे"]])}
      <p>🕓 दोपहर → शाम कब बदले:</p>${sel("rT2",r.t2,[[15,"3 बजे"],[16,"4 बजे"],[17,"5 बजे"]])}
@@ -1674,7 +1704,8 @@ function openRules(){
      <p>🚫 इस member के लिए बचने वाली चीज़ें (comma से अलग):</p><input id="rAvoid" type="text" placeholder="जैसे: प्याज़, लहसुन, तीखा" value="${getAvoid().join(", ")}">`,
     [{t:"Save",f:()=>{
       const g=id=>document.getElementById(id).value;
-      const o={gap:+g("rGap"),strict:g("rStrict")==="true",heavy:g("rHeavy")==="true",light:g("rLight")==="true",prot:g("rProt")==="true",water:g("rWater")==="true",wgoal:+g("rGoal"),t1:+g("rT1"),t2:+g("rT2"),eka:g("rEka")==="true"};
+      const o={gap:+g("rGap"),strict:g("rStrict")==="true",heavy:g("rHeavy")==="true",light:g("rLight")==="true",prot:g("rProt")==="true",water:g("rWater")==="true",wgoal:+g("rGoal"),t1:+g("rT1"),t2:+g("rT2"),eka:g("rEka")==="true",peek:g("rPeek")==="true"};
+      windowOpen=o.peek;
       localStorage.setItem("diet_rules",JSON.stringify(o));pushMisc("rules",o);
       localStorage.setItem(avKey(),JSON.stringify(g("rAvoid").split(",").map(x=>x.trim()).filter(Boolean)));
       render();
@@ -1694,8 +1725,30 @@ function setVratDay(d,m,on){
 function openVrat(){
   showModal("🪔 व्रत का दिन",`<p>तारीख चुनें। उस दिन के तीनों meals व्रत वाले विकल्प से बदल जाएँगे (🔀 में 🪔 व्रत tab भी मिलेगा)।</p>
     <input id="vDate" type="date" value="${inputFromIso(isoToday())}">
-    <select id="vScope"><option value="one">सिर्फ यह दिन</option><option value="wd">इस महीने के सभी वही वार (जैसे सारे सोमवार)</option></select>`,
-    [{t:"🪔 व्रत लगाएँ",f:()=>vratApply(true)},{t:"↩️ व्रत हटाएँ",f:()=>vratApply(false)},{t:"🪔 सभी एकादशी (इस महीने)",f:()=>vratEka(true)},{t:"🪔 सभी एकादशी (पूरे साल)",f:()=>vratEka(false)}]);
+    <select id="vScope"><option value="one">सिर्फ यह दिन</option><option value="wd">इस महीने के सभी वही वार (जैसे सारे सोमवार)</option></select>
+    <p style="font-size:11.5px">📚 हर साल की पूरी सूची: <a href="https://www.drikpanchang.com/vrats/ekadashidates.html" target="_blank" rel="noopener">Drik Panchang (एकादशी, अपने शहर के हिसाब से)</a> • <a href="https://panchang.astrosage.com/calendars/hindu-calendar?date=2027" target="_blank" rel="noopener">हिंदू कैलेंडर (त्योहार)</a> • <a href="https://samvat.in/festivals/2027/" target="_blank" rel="noopener">Samvat त्योहार सूची</a></p>`,
+    [{t:"🪔 व्रत लगाएँ",f:()=>vratApply(true)},{t:"↩️ व्रत हटाएँ",f:()=>vratApply(false)},{t:"🪔 सभी एकादशी (इस महीने)",f:()=>vratEka(true)},{t:"🪔 सभी एकादशी (पूरे साल)",f:()=>vratEka(false)},{t:"🪔 व्रत वाले त्योहार",f:()=>vratFest()},{t:"➕ अपनी तारीख",f:()=>{setTimeout(openDates,0);}}]);
+}
+function vratFest(){
+  let n=0;const seen={};
+  const doit=(y,mo,d)=>{const m=(mo-1+4)%12;if(yearForMonthIdx(m)!==y)return;setVratDay(d,m,true);n++;};
+  Object.keys(FESTIVALS).forEach(k=>{if(FESTIVALS[k][1]){const a=k.split("-").map(Number);doit(a[0],a[1],a[2]);}});
+  const c=getMyDates();Object.keys(c).forEach(k=>{if(c[k].k==="fest"&&c[k].f){const a=k.split("-").map(Number);doit(a[0],a[1],a[2]);}});
+  alert(n?n+" व्रत वाले त्योहार पर व्रत लग गया (करवा चौथ, महाशिवरात्रि, जन्माष्टमी और आपके जोड़े हुए)।":"कोई व्रत वाला त्योहार नहीं मिला।");
+}
+function delMyDate(k){const o=getMyDates();delete o[k];localStorage.setItem("diet_mydates",JSON.stringify(o));_mdRaw=null;pushMisc("mydates",o);document.querySelectorAll(".sync-modal-backdrop").forEach(e=>e.remove());render();openDates();}
+function openDates(){
+  const o=getMyDates(),ks=Object.keys(o).sort();
+  const list=ks.length?ks.map(k=>`<button type="button" class="secondary" style="display:block;width:100%;margin-bottom:4px;text-align:left;white-space:normal" onclick="delMyDate('${k}')">🗑️ ${k} — ${escH(o[k].n)} (${o[k].k==="ek"?"एकादशी":o[k].f?"त्योहार • व्रत":"त्योहार"})</button>`).join(""):"<p>अभी कोई अपनी तारीख नहीं है।</p>";
+  showModal("➕ अपनी तारीखें",`<p>अगले साल की एकादशी / त्योहार खुद जोड़ें। नीचे की किसी तारीख पर टैप करने से वह हट जाएगी।</p>${list}
+    <input id="mdDate" type="date"><input id="mdName" type="text" placeholder="नाम (जैसे: कामदा / ग्राम का मेला)">
+    <select id="mdKind"><option value="ek">एकादशी</option><option value="fest">त्योहार</option><option value="festf">त्योहार (व्रत वाला)</option></select>`,
+    [{t:"➕ जोड़ें",f:()=>{
+      const dv=document.getElementById("mdDate").value,nm=document.getElementById("mdName").value.trim(),kd=document.getElementById("mdKind").value;
+      if(!dv||!nm){alert("तारीख और नाम दोनों डालें।");return false;}
+      const o=getMyDates();o[isoFromInput(dv)]={n:nm.slice(0,40),k:kd==="ek"?"ek":"fest",f:kd==="festf"?1:0};
+      localStorage.setItem("diet_mydates",JSON.stringify(o));_mdRaw=null;pushMisc("mydates",o);render();
+    }}]);
 }
 function vratApply(on){
   const dv=document.getElementById("vDate").value;if(!dv){alert("तारीख चुनें।");return false;}
