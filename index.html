@@ -322,6 +322,10 @@ button:active{transform:scale(.97)}
 .controls-row.qrow{grid-template-columns:repeat(5,minmax(0,1fr))}
 .qb{font-size:10px!important}
 @media(min-width:760px){.cp-btns2 button{font-size:13px;padding:9px 6px}.qb{font-size:11.5px!important}}
+/* ---- member selector as a quick-grid cell ---- */
+.qb.qsel{background:#F1EADA;color:var(--primary-dark);border-radius:9px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:5px 1px!important;min-width:0}
+.qb.qsel i{font-style:normal;font-size:16px}
+.qb.qsel select{width:100%;min-width:0;border:0;background:transparent;color:var(--primary-dark);font-weight:700;font-size:10px;padding:0 2px;text-align:center;text-align-last:center;cursor:pointer;-webkit-appearance:none;appearance:none;text-overflow:ellipsis}
 </style>
 </head>
 <body>
@@ -375,25 +379,25 @@ button:active{transform:scale(.97)}
       <button class="secondary qb" onclick="openWeight()"><i>⚖️</i>Weight</button>
       <button class="secondary qb" onclick="openPastLog()"><i>📝</i>पुराना Log</button>
       <button class="secondary qb" onclick="openReport()"><i>📊</i>Report</button>
-      <button class="secondary qb" onclick="openTarget()"><i>🎯</i>Target</button>
+      <button class="secondary qb" onclick="toggleGrocery()"><i>🔁</i>दोहराई चीज़ें</button>
       <button class="secondary qb" onclick="openVrat()"><i>🪔</i>व्रत / त्योहार</button>
       <button class="secondary qb" onclick="planWeek()"><i>✨</i>Best हफ़्ता</button>
       <button class="secondary qb" onclick="openRules()"><i>🎛️</i>नियम</button>
-      <button class="secondary qb" onclick="shareProgress()"><i>📤</i>Share</button>
+      <div class="qb qsel" title="Member बदलें / नया जोड़ें"><i>👤</i><select id="profileSel"></select></div>
     </div>
     <div id="menuPanel" class="hidden">
       <div class="controls-row">
-        <button class="secondary" onclick="toggleGrocery()">🔁 दोहराई चीज़ें</button>
+        <button class="secondary" onclick="openTarget()">🎯 Target</button>
+        <button class="secondary" onclick="shareProgress()">📤 Share</button>
         <button class="secondary" onclick="window.print()">🖨️ Print</button>
-        <button class="secondary" id="toggleAllBtn" onclick="toggleAll()">सभी बंद करें</button>
       </div>
       <div class="controls-row">
+        <button class="secondary" id="toggleAllBtn" onclick="toggleAll()">सभी बंद करें</button>
         <button class="secondary" onclick="exportBackup()">💾 Backup</button>
         <button class="secondary" onclick="triggerRestoreFile()">📥 Restore</button>
-        <button onclick="clearAll()">Reset महीना</button>
       </div>
       <div class="controls-row">
-        <select id="profileSel"></select>
+        <button onclick="clearAll()">Reset महीना</button>
       </div>
     </div>
     <input type="file" id="restoreFileInput" accept="application/json,.json" class="hidden" onchange="handleRestoreFile(event)">
